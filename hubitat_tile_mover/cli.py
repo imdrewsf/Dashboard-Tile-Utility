@@ -41,14 +41,15 @@ Usage:
   hubitat_tile_mover.py [options]
 
 Main actions (choose one):
-  --insert:rows / --insert:cols
-  --move:rows / --move:cols / --move:range
-  --copy:rows / --copy:cols / --copy:range
-  --merge:rows / --merge:cols / --merge:range
-  --delete:rows / --delete:cols
-  --clear:rows / --clear:cols / --clear:range
-  --crop:rows / --crop:cols / --crop:range
-  --prune:ids / --prune:devices / --prune_except:ids / --prune_except:devices
+  --insert:rows|cols
+  --move:rows|cols|range
+  --copy:rows|cols|range
+  --merge:rows|cols|range
+  --delete:rows|cols
+  --clear:rows|cols|range
+  --crop:rows|cols|range
+  --prune:ids|devices
+  --prune_except:ids|devices
   --spacing_add:rows|cols|all
   --spacing_set:rows|cols|all
   --copy_css:merge|overwrite|replace|add
