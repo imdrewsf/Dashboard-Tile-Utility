@@ -23,6 +23,7 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any, Tuple
 
+from . import __version__
 from .util import die, ilog, wlog, dlog
 
 _REQUEST_TOKEN_RE = re.compile(r"javascriptRequestToken\s*=\s*['\"]([^'\"]+)['\"]")
@@ -34,7 +35,7 @@ class HubUrls:
     request_token: str
 
 def _read_url_text(url: str, *, timeout: int = 20) -> str:
-    req = urllib.request.Request(url, headers={"User-Agent": "dashboard_tile_utility/rc"})
+    req = urllib.request.Request(url, headers={"User-Agent": f"dashboard_tile_utility/{__version__}"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         data = resp.read()
     return data.decode("utf-8", errors="replace")
@@ -92,7 +93,7 @@ def _hub_post_once(layout_url: str, obj: Any, *, verbose: bool = False, debug: b
         method="POST",
         headers={
             "Content-Type": "application/json; charset=utf-8",
-            "User-Agent": "dashboard_tile_utility/rc",
+            "User-Agent": f"dashboard_tile_utility/{__version__}",
         },
     )
     with urllib.request.urlopen(req, timeout=25) as resp:
