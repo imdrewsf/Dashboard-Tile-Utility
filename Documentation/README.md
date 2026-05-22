@@ -1,6 +1,6 @@
 # Dashboard Tile Utility
 
-**Documentation — v0.9.200.2026052201**
+**Documentation — v1.0.0**
 
 A command-line tool to import, modify, and output [Hubitat](https://hubitat.com/) dashboard tile layouts.
 
