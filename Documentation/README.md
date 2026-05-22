@@ -57,36 +57,38 @@ A command-line tool to import, modify, and output [Hubitat](https://hubitat.com/
 
 **Import, modify and output Hubitat dashboard layouts:**
 
-- **IMPORT** dashboard layouts directly from the hub, JSON files or the clipboard (default).
-- **OUTPUT** changed layouts directly back to the hub, JSON files, the terminal or the clipboard (default).
+- [**IMPORT**](#import) dashboard layouts directly from the hub, JSON files or the clipboard (default).
+- [**OUTPUT**](#output) changed layouts directly back to the hub, JSON files, the terminal or the clipboard (default).
 
 **Tile Actions**
 
-- **MOVE** tiles in columns, rows or a rectangular range of tiles.
-- **COPY** tiles in columns, rows or a rectangular range of tiles.
-- **MERGE** (copy) tiles in columns, rows or a rectangular range of tiles from another dashboard.
-- **CLEAR** tiles in columns, rows or a rectangular range of tiles and leave the space empty.
-- **PRUNE** (clear) tiles from a layout by tile or device id. Prune only specific id's or prune all except specific id's.
+- [**MOVE**](#move) tiles in columns, rows or a rectangular range of tiles.
+- [**COPY**](#copy) tiles in columns, rows or a rectangular range of tiles.
+- [**MERGE**](#merge) (copy) tiles in columns, rows or a rectangular range of tiles from another dashboard.
+- [**CLEAR**](#clear) tiles in columns, rows or a rectangular range of tiles and leave the space empty.
+- [**PRUNE**](#prune) (clear) tiles from a layout by tile or device id. Prune only specific id's or prune all except specific id's.
 
 **Layout Actions**
 
-- **INSERT** full or partial empty columns or rows (push tiles over/down at column/row).
-- **DELETE** full or partial columns or rows of tiles (remove tiles and shift the layout left or up).
-- **CROP** layouts by clearing all tiles outside of columns, rows or a rectangular range.
-- **SPACING** increase, decrease or set uniform spacing between dashboard tiles.
-- **TRIM** empty rows and/or columns from the top and/or left sides of a layout.
+- [**INSERT**](#insert) full or partial empty columns or rows (push tiles over/down at column/row).
+- [**DELETE**](#delete) full or partial columns or rows of tiles (remove tiles and shift the layout left or up).
+- [**CROP**](#crop) layouts by clearing all tiles outside of columns, rows or a rectangular range.
+- [**SPACING**](#spacing) increase, decrease or set uniform spacing between dashboard tiles.
+- [**TRIM**](#trim) empty rows and/or columns from the top and/or left sides of a layout.
 
 **Additional Features**
 
-- **CSS SUPPORT**
+- [**CSS SUPPORT**](#custom-css-handling--capabilities--limits)
   - Preserve, duplicate or remove CSS rules from `customCSS` when tiles are added (copied) or removed by layout actions.
   - Copy custom CSS rules between tiles with conflict handling if rules already exist for the destination tile.
   - Reformat and sort custom rules in `customCSS` for easier editing.
   - CSS comment block awareness, including "commented out" rules.
   - Scrub orphan `customCSS` to remove rules for tiles that no longer exist in the layout.
 - **CONFLICT PREVENTION:** Prevent actions which would result in tiles being placed on top of existing tiles.
-- **VISUAL MAPS:** Easily see proposed changes, tile-ids, potential conflicts and outcome of layout actions.
-- **TILE LISTS:** Generate lists of dashboard tiles and properties.
+- [**VISUAL MAPS:**](#visual-layout-maps) Easily see proposed changes, tile-ids, potential conflicts and outcome of layout actions.
+- [**TILE LISTS:**](#dashboard-tile-lists) Generate lists of dashboard tiles and properties.
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -124,6 +126,8 @@ Hub access allows dashboard layouts to be read and saved directly to the hub. If
 - You will need the local dashboard URL, including the access token, from your Hubitat dashboard settings.
 - The hub's port is taken from the URL. If no port is specified, port `8080` is used.
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ---
 
 ## Additional Information
@@ -159,6 +163,8 @@ Program output is split to terminal outputs `stdout` and `stderr` as follows:
 | ❌ | Syntax or method is incompatible or not allowed. |
 | → | Result or output of the previous step. |
 | 💡 | Notation or explanation. |
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -210,6 +216,8 @@ Sets the destination(s) to save dashboard layout JSON after layout actions have 
   - `url` is not specified, is invalid or unreachable.
   - A valid `requestToken` could not be obtained.
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ---
 
 ## Layout Actions Overview
@@ -249,6 +257,8 @@ Sets the destination(s) to save dashboard layout JSON after layout actions have 
 - A conflict occurs when any part of a tile being copied or moved would overlap with one or more existing tiles at the destination location.
 - By default, actions abort if conflicts are detected and `--overlaps:skip` or `--overlaps:allow` are not present.
 - Conflict detection is evaluated once, before copying / moving, against existing tiles in the destination only. Tiles that overlap in their original position are not considered in conflict with each other when they are moved or copied.
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -719,6 +729,8 @@ Removes blank rows above the top-most tile and/or blank columns left of the left
 - The trim action can be used in conjunction with another action, or as a standalone action.
 - When combined with another action, trimming will only occur after successful completion of the primary action.
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ---
 
 ## CSS Actions and Options
@@ -849,6 +861,8 @@ Removes all tile-scoped CSS rules from `customCSS` with selectors that reference
 
 - CSS reformatting is performed last, after all other operations have completed. It can be used as a standalone primary action or as a supplemental action.
 - See [CSS Overview](#css-overview) for more information.
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -1032,6 +1046,8 @@ Generate lists of dashboard tiles and basic attributes.
 
 - `-h`, `--help` — Short help.
 - `--help:full` — Full detailed help.
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -1355,6 +1371,8 @@ The neutralized tokens (`tile_123`, `#tile_123`, `.tile_123`) are intentionally 
 /* [dashboard_tile_utility] tile(s) removed; CSS rules removed for: tile_123 */
 ```
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ---
 
 ## Usage Examples
@@ -1394,6 +1412,8 @@ python dtu.py --scrub_css --force
 ```bash
 python dtu.py --undo_last
 ```
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -1454,6 +1474,8 @@ python dtu.py --import:clipboard --output:hub <"dashboard_local_url"> \
 7. Writes the final new layout to the hub.
 8. Does not change the undo backup created by the first action. In the event of an error, running `--undo_last` would undo all changes made by the batch by restoring the undo backup made in the first action.
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ---
 
 ## License
@@ -1465,3 +1487,7 @@ Licensed under the Apache License, Version 2.0 (the "License"); you may not use 
 <http://www.apache.org/licenses/LICENSE-2.0>
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+
+---
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
