@@ -51,6 +51,8 @@ A command-line tool to import, modify, and output [Hubitat](https://hubitat.com/
 - [Batch Actions](#batch-actions)
 - [License](#license)
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ---
 
 ## Features Overview
@@ -142,12 +144,16 @@ Backup files are automatically created to store layouts before changes are appli
 
 If the folder cannot be created, backup files are written to the current working directory instead.
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ### Terminal Output
 
 Program output is split to terminal outputs `stdout` and `stderr` as follows:
 
 - **`stdout`:** main result data
 - **`stderr`:** maps, warnings, diagnostics, conflict previews
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ### Documentation Syntax
 
@@ -195,6 +201,8 @@ Sets the source to import dashboard layout JSON from.
   http://192.168.1.5/apps/api/3/dashboard/3?access_token=a123bc5d-ef6a-6b1c-7de8-fea9012b3cd4&local=true
   ```
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ### Output
 
 Sets the destination(s) to save dashboard layout JSON after layout actions have completed.
@@ -227,6 +235,8 @@ Sets the destination(s) to save dashboard layout JSON after layout actions have 
 - **Primary edit actions:** make modifications to tiles. Primary actions include: insert, move, copy, merge, delete, clear, crop, prune and spacing. Only one primary edit action can be used per run.
 - **Supplemental actions:** can be used standalone or with primary actions. These include displaying visual layout maps, JSON sorting, orphaned CSS cleanup, CSS reformatting and layout trim functions. Supplemental actions are always performed after primary actions have successfully completed.
 - **Undo / restore action:** `--undo_last` is a standalone action and supersedes all other actions.
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ### Action Targets — Selecting Tiles
 
@@ -274,6 +284,8 @@ Sets the destination(s) to save dashboard layout JSON after layout actions have 
 > | 🟥 Red | Tiles removed from selection by the switch shown for that example |
 > | ↖ (arrow) | Location of tile used to determine its selection |
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ### Select
 
 Changes the default tile selection behavior.
@@ -290,6 +302,8 @@ Changes the default tile selection behavior.
 **Examples:**
 
 ![Select mode examples showing default, include_partial, exclude_partial, and only_partial selection](Assets/select-modes.png)
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -331,6 +345,8 @@ Inserts empty whole or partial rows or columns by pushing tiles beyond the inser
 
 ![Insert columns with include_partial selection](Assets/insert-include-partial.png)
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ---
 
 ### Move
@@ -364,6 +380,8 @@ Moves tiles to a new location.
 - Conflict detection is evaluated once, before moving, against existing tiles at the destination only.
 - Tiles that are being moved can be overlapped and will not be considered in conflict.
 - Actions will be aborted if conflicts are found unless `--overlaps:allow` or `--overlaps:skip` is present.
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -406,6 +424,8 @@ Same as Move, but the originals remain. Copies are created with new IDs. Existin
 - Conflict detection is evaluated once, before copying, against existing tiles at the destination only.
 - Tiles that are being copied can be overlapped and will not be considered in conflict.
 - Actions will be aborted if conflicts are found unless `--overlaps:allow` or `--overlaps:skip` is present.
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -453,6 +473,8 @@ Merge (copy) tiles from another dashboard layout into this layout.
 - Conflict detection is evaluated once, before merging, against existing tiles in the destination only.
 - Tiles that are being merged can be overlapped and will not be considered in conflict.
 - Actions will be aborted if conflicts are found unless `--overlaps:allow` or `--overlaps:skip` is present.
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -503,6 +525,8 @@ Deletes tiles located in the target rows or columns, then shifts remaining tiles
 1. Tiles located in the target area columns or whose span extends into it are selected.
 2. Selected tiles are removed leaving the target area empty.
 3. Target area columns are deleted by shifting tiles to the right of the target area columns left by the number of columns removed. Since the target area columns were empty, there are no conflicts.
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -555,6 +579,8 @@ Removes tiles in the target rows, columns or range but does not change the dashb
 
 ![Clear with only_partial selection](Assets/clear-only-partial.png)
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ---
 
 ### Crop
@@ -603,6 +629,8 @@ Clears all tiles located outside of the target rows, columns or range. The posit
 
 ![Crop with exclude_partial selection](Assets/crop-exclude-partial.png)
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ---
 
 ### Prune
@@ -639,6 +667,8 @@ Clears tiles based on a list of either tile-id numbers or device-id numbers. `--
 - Use `--scrub_css` to remove all orphaned CSS rules, including rules for tiles removed or cleared by the current operation.
 - At least one tile must remain after pruning.
 - Use `--trim`, `--trim:top` or `--trim:left` to remove blank rows on the top or columns on the left of the remaining tiles.
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -696,6 +726,8 @@ Increases, decreases or sets uniform spacing between all dashboard tiles.
 - Spacing between tiles will never be reduced below zero.
 - `--overlaps:remove_partial` and `--overlaps:remove_all` spread out overlapping tiles while keeping as much of the original tile order and general layout as possible. Overlapping and nested tiles may cause unpredictable layout changes, especially when working with large or complex layouts.
 - `--overlaps:remove_all` can be used to rapidly add tiles to a dashboard. Tiles can be added haphazardly or stacked in the same location, then laid out uniformly with `--spacing_set` and this switch.
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -782,6 +814,8 @@ Copies CSS rules from one tile to another.
 
 - When used with `--force`, merge, overwrite and add differ only in the default action taken.
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ---
 
 ### Clear CSS
@@ -806,6 +840,8 @@ Removes CSS rules in `customCSS` with selectors referencing a tile-id.
 - Only CSS rules for existing tiles can be cleared.
 - Orphaned rules can only be removed with the `--scrub_css` action.
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ---
 
 ### Scrub CSS
@@ -822,6 +858,8 @@ Removes all tile-scoped CSS rules from `customCSS` with selectors that reference
 
 - May be used as a standalone primary action or as a supplemental action after the primary action has completed successfully.
 - See [CSS Overview](#css-overview) for more information.
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -892,6 +930,8 @@ Changes the order tiles appear in the dashboard layout JSON only.
 - Keys are sorted in ascending order unless preceded by a `-`.
 - Ascending or descending order can be specified for each key. Examples: `--sort_json "rc-i"` or `--sort_json "-r-ci"`.
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ---
 
 ### Visual Layout Maps
@@ -941,6 +981,8 @@ Show before, outcome and conflict layout previews in the terminal.
 | 🟩 green | tiles successfully changed by the action or portions not in conflict |
 | 🟥 red | tiles (or portions) in conflict that caused the action to fail |
 | 🟨 yellow | tiles (or portions) in conflict allowed by `--overlaps:allow` |
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -1011,6 +1053,8 @@ Generate lists of dashboard tiles and basic attributes.
 - If no `--output` destination is specified, output will default to the terminal.
 - In conflict lists, tiles with shared origins are overlapping tiles that begin at the same upper left corner location.
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ---
 
 ### Miscellaneous Options
@@ -1062,6 +1106,8 @@ Generate lists of dashboard tiles and basic attributes.
 - CSS parsing is limited to typical Hubitat dashboard CSS, not full CSS grammar. Specifically, the parser can only "see" and process "tile-scoped" rules and has limited support for rules inside of comment blocks.
 - Inconsistent formatting, line breaks and whitespace may interfere with CSS parsing.
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ### CSS Rule Guidelines
 
 - A rule is treated as tile-scoped when its **selector** (the part before `{...}`) contains a tile-identifier such as `#tile-123` or `.tile-123`.
@@ -1069,6 +1115,8 @@ Generate lists of dashboard tiles and basic attributes.
 - Rules inside `@media { ... }` blocks can be duplicated/removed, but the tool does not attempt to fully normalize complex nested at-rules.
 - Use `--css:ignore` if your `customCSS` contains advanced selector patterns or complicated blocks you do not want rewritten.
 - Avoid using `--copy_css`, `--css:cleanup` and `--scrub_css` on dashboards with CSS that intentionally cross-references multiple tiles in a single selector item.
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -1158,6 +1206,8 @@ Generate lists of dashboard tiles and basic attributes.
 }
 ```
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ---
 
 ### Incompatible and Problematic CSS Rules
@@ -1230,6 +1280,8 @@ Tile references within the declaration block are remapped **if** the tile refere
 #tile-123 .tile-content { background-image: url("/images/tile-999.png"); }
 #tile-141 .tile-content { background-image: url("/images/tile-999.png"); }
 ```
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ---
 
@@ -1424,6 +1476,8 @@ python dtu.py --undo_last
 - Use `--lock_backup` on all actions except the first action. This provides an undo from before any actions in the batch were run.
 - Reduce risk and increase speed by minimizing using the clipboard to read and write intermediate layouts in batches.
 
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
+
 ### Example Batch
 
 **Overview:**
@@ -1446,6 +1500,8 @@ python dtu.py --import:clipboard --output:clipboard --merge_source:hub <"other_d
 python dtu.py --import:clipboard --output:hub <"dashboard_local_url"> \
   --crop:range 10 10 40 30 --select:include_partial --force --css:cleanup --trim --lock_backup
 ```
+
+<div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
 ### Batched Actions in Detail
 
