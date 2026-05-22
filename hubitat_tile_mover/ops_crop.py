@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Set, Tuple
 import re
 
+from .selectors import SelectionMode, select_tiles_by_col_range, select_tiles_by_rect_range, select_tiles_by_row_range
 from .geometry import ranges_overlap, rects_overlap
 from .tiles import as_int, rect, tile_col_extent, tile_row_extent
 from .util import format_id_sample, prompt_yes_no_or_die, vlog, ilog
@@ -22,6 +23,8 @@ def _warn_and_prompt(
     show_map: bool = False,
     map_focus: str = 'full',
     all_tiles: Optional[list] = None,
+    show_ids: bool = False,
+    show_axes: str = "none",
 ) -> None:
     if not removed_ids:
         return
@@ -48,6 +51,8 @@ def _warn_and_prompt(
                 mark_rects=mark_rects,
                 bounds_rects=bounds_rects,
                 no_scale=(map_focus == 'no_scale'),
+                show_ids=show_ids,
+                show_axes=show_axes,
             ),
             end='',
             file=_sys.stderr,
@@ -67,51 +72,40 @@ def crop_to_rows(
     *,
     start_row: int,
     end_row: int,
-    include_overlap: bool,
+    selection_mode: SelectionMode,
     force: bool,
     verbose: bool,
     debug: bool,
     show_map: bool = False,
     map_focus: str = 'full',
+    show_ids: bool = False,
+    show_axes: str = "none",
 ) -> List[int]:
     if start_row <= 0 or end_row <= 0:
         _die("--crop_to_rows values must be positive (1-based).")
     if start_row > end_row:
         start_row, end_row = end_row, start_row
 
-    keep: List[Dict[str, Any]] = []
-    removed: List[Dict[str, Any]] = []
-
-    # For warnings when include_overlap is not set: tiles that overlap but do not start inside
-    straddlers: List[Dict[str, Any]] = []
-
-    for t in tiles:
-        if include_overlap:
-            r1, r2 = tile_row_extent(t)
-            ok = ranges_overlap(r1, r2, start_row, end_row)
-        else:
-            r0 = as_int(t, "row")
-            ok = (start_row <= r0 <= end_row)
-
-            # straddler warning
-            r1, r2 = tile_row_extent(t)
-            if ranges_overlap(r1, r2, start_row, end_row) and not ok:
-                straddlers.append(t)
-
-        (keep if ok else removed).append(t)
+    selected = select_tiles_by_row_range(tiles, start_row, end_row, include_overlap=selection_mode)
+    sel_obj_ids = {id(t) for t in selected}
+    keep: List[Dict[str, Any]] = selected
+    removed: List[Dict[str, Any]] = [t for t in tiles if id(t) not in sel_obj_ids]
 
     if not keep:
         _die("At least one tile must remain. The crop range contains no tiles under the current selection rules.")
     removed_ids = [as_int(t, "id") for t in removed]
     extra = ""
-    if (not include_overlap) and straddlers:
-        sids = [as_int(t, "id") for t in straddlers]
-        extra = (
-            f"WARNING: {len(straddlers)} tile(s) overlap the kept rows but do not start inside them "
-            f"(removed because --select:include_partial not set). IDs: {format_id_sample(sids)}"
-        )
+    mode_s = str(selection_mode or "default")
+    if mode_s == "default":
+        straddlers = [t for t in tiles if ranges_overlap(*tile_row_extent(t), start_row, end_row) and not (start_row <= as_int(t, "row") <= end_row)]
+        if straddlers:
+            sids = [as_int(t, "id") for t in straddlers]
+            extra = (
+                f"WARNING: {len(straddlers)} tile(s) overlap the kept rows but do not start inside them "
+                f"(removed because --select:include_partial not set). IDs: {format_id_sample(sids)}"
+            )
 
-    _warn_and_prompt(force, f"crop_to_rows {start_row}..{end_row}", removed, removed_ids, extra_warning=extra, verbose=verbose, debug=debug, show_map=show_map, map_focus=map_focus, all_tiles=tiles)
+    _warn_and_prompt(force, f"crop_to_rows {start_row}..{end_row}", removed, removed_ids, extra_warning=extra, verbose=verbose, debug=debug, show_map=show_map, map_focus=map_focus, all_tiles=tiles, show_ids=show_ids, show_axes=show_axes)
     tiles[:] = keep
     vlog(verbose, f"[crop_to_rows] kept {len(keep)} tile(s), removed {len(removed)} tile(s)")
     return removed_ids
@@ -122,48 +116,40 @@ def crop_to_cols(
     *,
     start_col: int,
     end_col: int,
-    include_overlap: bool,
+    selection_mode: SelectionMode,
     force: bool,
     verbose: bool,
     debug: bool,
     show_map: bool = False,
     map_focus: str = 'full',
+    show_ids: bool = False,
+    show_axes: str = "none",
 ) -> List[int]:
     if start_col <= 0 or end_col <= 0:
         _die("--crop_to_cols values must be positive (1-based).")
     if start_col > end_col:
         start_col, end_col = end_col, start_col
 
-    keep: List[Dict[str, Any]] = []
-    removed: List[Dict[str, Any]] = []
-    straddlers: List[Dict[str, Any]] = []
-
-    for t in tiles:
-        if include_overlap:
-            c1, c2 = tile_col_extent(t)
-            ok = ranges_overlap(c1, c2, start_col, end_col)
-        else:
-            c0 = as_int(t, "col")
-            ok = (start_col <= c0 <= end_col)
-
-            c1, c2 = tile_col_extent(t)
-            if ranges_overlap(c1, c2, start_col, end_col) and not ok:
-                straddlers.append(t)
-
-        (keep if ok else removed).append(t)
+    selected = select_tiles_by_col_range(tiles, start_col, end_col, include_overlap=selection_mode)
+    sel_obj_ids = {id(t) for t in selected}
+    keep: List[Dict[str, Any]] = selected
+    removed: List[Dict[str, Any]] = [t for t in tiles if id(t) not in sel_obj_ids]
 
     if not keep:
         _die("At least one tile must remain. The crop range contains no tiles under the current selection rules.")
     removed_ids = [as_int(t, "id") for t in removed]
     extra = ""
-    if (not include_overlap) and straddlers:
-        sids = [as_int(t, "id") for t in straddlers]
-        extra = (
-            f"WARNING: {len(straddlers)} tile(s) overlap the kept cols but do not start inside them "
-            f"(removed because --select:include_partial not set). IDs: {format_id_sample(sids)}"
-        )
+    mode_s = str(selection_mode or "default")
+    if mode_s == "default":
+        straddlers = [t for t in tiles if ranges_overlap(*tile_col_extent(t), start_col, end_col) and not (start_col <= as_int(t, "col") <= end_col)]
+        if straddlers:
+            sids = [as_int(t, "id") for t in straddlers]
+            extra = (
+                f"WARNING: {len(straddlers)} tile(s) overlap the kept cols but do not start inside them "
+                f"(removed because --select:include_partial not set). IDs: {format_id_sample(sids)}"
+            )
 
-    _warn_and_prompt(force, f"crop_to_cols {start_col}..{end_col}", removed, removed_ids, extra_warning=extra, verbose=verbose, debug=debug, show_map=show_map, map_focus=map_focus, all_tiles=tiles)
+    _warn_and_prompt(force, f"crop_to_cols {start_col}..{end_col}", removed, removed_ids, extra_warning=extra, verbose=verbose, debug=debug, show_map=show_map, map_focus=map_focus, all_tiles=tiles, show_ids=show_ids, show_axes=show_axes)
     tiles[:] = keep
     vlog(verbose, f"[crop_to_cols] kept {len(keep)} tile(s), removed {len(removed)} tile(s)")
     return removed_ids
@@ -176,12 +162,14 @@ def crop_to_range(
     left_col: int,
     bottom_row: int,
     right_col: int,
-    include_overlap: bool,
+    selection_mode: SelectionMode,
     force: bool,
     verbose: bool,
     debug: bool,
     show_map: bool = False,
     map_focus: str = 'full',
+    show_ids: bool = False,
+    show_axes: str = "none",
 ) -> List[int]:
     if min(top_row, left_col, bottom_row, right_col) <= 0:
         _die("--crop_to_range values must be positive (1-based).")
@@ -190,37 +178,27 @@ def crop_to_range(
     if left_col > right_col:
         left_col, right_col = right_col, left_col
 
-    sel_rect = (top_row, bottom_row, left_col, right_col)
-
-    keep: List[Dict[str, Any]] = []
-    removed: List[Dict[str, Any]] = []
-    straddlers: List[Dict[str, Any]] = []
-
-    for t in tiles:
-        if include_overlap:
-            ok = rects_overlap(rect(t), sel_rect)
-        else:
-            r0 = as_int(t, "row")
-            c0 = as_int(t, "col")
-            ok = (top_row <= r0 <= bottom_row) and (left_col <= c0 <= right_col)
-
-            if rects_overlap(rect(t), sel_rect) and not ok:
-                straddlers.append(t)
-
-        (keep if ok else removed).append(t)
+    selected = select_tiles_by_rect_range(tiles, top_row, left_col, bottom_row, right_col, include_overlap=selection_mode)
+    sel_obj_ids = {id(t) for t in selected}
+    keep: List[Dict[str, Any]] = selected
+    removed: List[Dict[str, Any]] = [t for t in tiles if id(t) not in sel_obj_ids]
 
     if not keep:
         _die("At least one tile must remain. The crop range contains no tiles under the current selection rules.")
     removed_ids = [as_int(t, "id") for t in removed]
     extra = ""
-    if (not include_overlap) and straddlers:
-        sids = [as_int(t, "id") for t in straddlers]
-        extra = (
-            f"WARNING: {len(straddlers)} tile(s) overlap the kept range but do not start inside it "
-            f"(removed because --select:include_partial not set). IDs: {format_id_sample(sids)}"
-        )
+    mode_s = str(selection_mode or "default")
+    if mode_s == "default":
+        sel_rect = (top_row, bottom_row, left_col, right_col)
+        straddlers = [t for t in tiles if rects_overlap(rect(t), sel_rect) and not (top_row <= as_int(t, "row") <= bottom_row and left_col <= as_int(t, "col") <= right_col)]
+        if straddlers:
+            sids = [as_int(t, "id") for t in straddlers]
+            extra = (
+                f"WARNING: {len(straddlers)} tile(s) overlap the kept range but do not start inside it "
+                f"(removed because --select:include_partial not set). IDs: {format_id_sample(sids)}"
+            )
 
-    _warn_and_prompt(force, f"crop_to_range {top_row},{left_col}..{bottom_row},{right_col}", removed, removed_ids, extra_warning=extra, verbose=verbose, debug=debug, show_map=show_map, map_focus=map_focus, all_tiles=tiles)
+    _warn_and_prompt(force, f"crop_to_range {top_row},{left_col}..{bottom_row},{right_col}", removed, removed_ids, extra_warning=extra, verbose=verbose, debug=debug, show_map=show_map, map_focus=map_focus, all_tiles=tiles, show_ids=show_ids, show_axes=show_axes)
     tiles[:] = keep
     vlog(verbose, f"[crop_to_range] kept {len(keep)} tile(s), removed {len(removed)} tile(s)")
     return removed_ids

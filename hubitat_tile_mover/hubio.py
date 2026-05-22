@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -31,7 +32,9 @@ def _build_layout_url(dashboard_url: str, request_token: str) -> str:
     host = u.hostname or ""
     if not host:
         die("URL does not look valid (missing host).")
-    netloc = f"{host}:8080"
+    port = u.port if u.port is not None else 8080
+    host_for_netloc = f"[{host}]" if (":" in host and not host.startswith("[")) else host
+    netloc = f"{host_for_netloc}:{port}"
     path = u.path.rstrip("/") + "/layout"
 
     q = urllib.parse.parse_qsl(u.query, keep_blank_values=True)
@@ -85,9 +88,9 @@ def hub_post_layout_with_refresh(dashboard_url: str, last_layout_url: str, obj: 
     try:
         _hub_post_once(last_layout_url, obj, verbose=verbose, debug=debug)
         return last_layout_url
-    except Exception:
+    except urllib.error.URLError as e:
         if verbose:
-            wlog("POST failed once; refreshed requestToken and retrying.")
+            wlog(f"POST failed once ({e}); refreshed requestToken and retrying.")
         token = fetch_request_token(dashboard_url, verbose=verbose, debug=debug)
         new_layout_url = _build_layout_url(dashboard_url, token)
         _hub_post_once(new_layout_url, obj, verbose=verbose, debug=debug)

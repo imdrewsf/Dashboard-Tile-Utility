@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from .selectors import SelectionMode
+
 from .selectors import (
     select_tiles_by_col_range,
     select_tiles_by_rect_range,
@@ -12,7 +14,7 @@ from .map_view import render_tile_map
 from .util import format_id_sample, prompt_yes_no_or_die, vlog
 
 
-def _maybe_show_remove_map(tiles: List[Dict[str, Any]], selected: List[Dict[str, Any]], *, show_map: bool, map_focus: str) -> None:
+def _maybe_show_remove_map(tiles: List[Dict[str, Any]], selected: List[Dict[str, Any]], *, show_map: bool, map_focus: str, show_ids: bool = False, show_axes: str = "none") -> None:
     if not show_map or not selected:
         return
     import sys as _sys
@@ -25,6 +27,8 @@ def _maybe_show_remove_map(tiles: List[Dict[str, Any]], selected: List[Dict[str,
             mark_rects=mark_rects,
             bounds_rects=bounds_rects,
             no_scale=(map_focus == 'no_scale'),
+            show_ids=show_ids,
+            show_axes=show_axes,
         ),
         end="",
         file=_sys.stderr,
@@ -36,21 +40,23 @@ def clear_rows(
     *,
     start_row: int,
     end_row: int,
-    include_overlap: bool,
+    selection_mode: SelectionMode,
     force: bool,
     verbose: bool,
     debug: bool,
     show_map: bool = False,
     map_focus: str = "full",
+    show_ids: bool = False,
+    show_axes: str = "none",
 ) -> List[int]:
     if start_row > end_row:
         start_row, end_row = end_row, start_row
 
-    selected = select_tiles_by_row_range(tiles, start_row, end_row, include_overlap=include_overlap)
+    selected = select_tiles_by_row_range(tiles, start_row, end_row, include_overlap=selection_mode)
     selected_ids = [as_int(t, "id") for t in selected]
 
     if selected:
-        _maybe_show_remove_map(tiles, selected, show_map=show_map, map_focus=map_focus)
+        _maybe_show_remove_map(tiles, selected, show_map=show_map, map_focus=map_focus, show_ids=show_ids, show_axes=show_axes)
         prompt_yes_no_or_die(
             force,
             f"There are {len(selected)} tiles in rows {start_row}–{end_row}. Are you sure you want to remove them?",
@@ -71,21 +77,23 @@ def clear_cols(
     *,
     start_col: int,
     end_col: int,
-    include_overlap: bool,
+    selection_mode: SelectionMode,
     force: bool,
     verbose: bool,
     debug: bool,
     show_map: bool = False,
     map_focus: str = "full",
+    show_ids: bool = False,
+    show_axes: str = "none",
 ) -> List[int]:
     if start_col > end_col:
         start_col, end_col = end_col, start_col
 
-    selected = select_tiles_by_col_range(tiles, start_col, end_col, include_overlap=include_overlap)
+    selected = select_tiles_by_col_range(tiles, start_col, end_col, include_overlap=selection_mode)
     selected_ids = [as_int(t, "id") for t in selected]
 
     if selected:
-        _maybe_show_remove_map(tiles, selected, show_map=show_map, map_focus=map_focus)
+        _maybe_show_remove_map(tiles, selected, show_map=show_map, map_focus=map_focus, show_ids=show_ids, show_axes=show_axes)
         prompt_yes_no_or_die(
             force,
             f"There are {len(selected)} tiles in columns {start_col}–{end_col}. Are you sure you want to remove them?",
@@ -108,21 +116,23 @@ def clear_range(
     left_col: int,
     bottom_row: int,
     right_col: int,
-    include_overlap: bool,
+    selection_mode: SelectionMode,
     force: bool,
     verbose: bool,
     debug: bool,
     show_map: bool = False,
     map_focus: str = "full",
+    show_ids: bool = False,
+    show_axes: str = "none",
 ) -> List[int]:
     tr, br = (top_row, bottom_row) if top_row <= bottom_row else (bottom_row, top_row)
     lc, rc = (left_col, right_col) if left_col <= right_col else (right_col, left_col)
 
-    selected = select_tiles_by_rect_range(tiles, tr, lc, br, rc, include_overlap=include_overlap)
+    selected = select_tiles_by_rect_range(tiles, tr, lc, br, rc, include_overlap=selection_mode)
     selected_ids = [as_int(t, "id") for t in selected]
 
     if selected:
-        _maybe_show_remove_map(tiles, selected, show_map=show_map, map_focus=map_focus)
+        _maybe_show_remove_map(tiles, selected, show_map=show_map, map_focus=map_focus, show_ids=show_ids, show_axes=show_axes)
         prompt_yes_no_or_die(
             force,
             f"There are {len(selected)} tiles in range ({tr},{lc})–({br},{rc}). Are you sure you want to remove them?",

@@ -196,6 +196,62 @@ def _components_by_y(urects: List[Rect]) -> List[List[int]]:
     return _components_1d(y_ints)
 
 
+def _rect_contains(a: Rect, b: Rect) -> bool:
+    return a[0] <= b[0] and a[1] >= b[1] and a[2] <= b[2] and a[3] >= b[3]
+
+
+def _rect_same(a: Rect, b: Rect) -> bool:
+    return a == b
+
+
+def _rect_area(r: Rect) -> int:
+    return (r[1] - r[0] + 1) * (r[3] - r[2] + 1)
+
+
+def _containment_tree_units(tiles: List[Dict[str, Any]], indices: List[int]) -> List[List[int]]:
+    """Return rigid units for spacing --overlaps:remove_partial.
+
+    Fully nested tiles remain attached to their smallest containing ancestor so spacing inside
+    containment trees is unchanged. Root-level partial overlaps are split into separate units.
+    Same-origin roots are grouped together.
+    """
+    if not indices:
+        return []
+    rects = {i: _tile_rect(tiles[i]) for i in indices}
+    parent: Dict[int, int] = {}
+    children: DefaultDict[int, List[int]] = defaultdict(list)
+
+    for i in indices:
+        ri = rects[i]
+        candidates = [
+            j for j in indices
+            if j != i and _rect_contains(rects[j], ri) and not _rect_same(rects[j], ri)
+        ]
+        if candidates:
+            best = min(candidates, key=lambda j: (_rect_area(rects[j]), rects[j][0], rects[j][2], j))
+            parent[i] = best
+            children[best].append(i)
+
+    def gather(root: int, out: List[int]) -> None:
+        out.append(root)
+        for ch in sorted(children.get(root, []), key=lambda j: (rects[j][0], rects[j][2], j)):
+            gather(ch, out)
+
+    roots = [i for i in indices if i not in parent]
+    root_groups: DefaultDict[Tuple[int, int], List[int]] = defaultdict(list)
+    for r in roots:
+        rr = rects[r]
+        root_groups[(rr[0], rr[2])].append(r)
+
+    units: List[List[int]] = []
+    for _, grouped_roots in sorted(root_groups.items(), key=lambda kv: (kv[0][0], kv[0][1])):
+        members: List[int] = []
+        for r in sorted(grouped_roots, key=lambda j: (_rect_area(rects[j]), rects[j][1], rects[j][3], j)):
+            gather(r, members)
+        units.append(sorted(set(members)))
+    return units
+
+
 def adjust_tile_spacing(
     tiles: List[Dict[str, Any]],
     cells: int,
@@ -214,8 +270,8 @@ def adjust_tile_spacing(
 
     Overlap behavior matches spacing_set:
       - Default: overlapping tiles are grouped into overlap unions (units).
-      - --overlaps:remove: treat every tile as its own unit (fully un-overlap globally).
-      - legacy --include_overlap (without --overlaps:remove): apply adjustment *within* each original overlap union
+      - --overlaps:remove_all: treat every tile as its own unit (fully un-overlap globally).
+      - --overlaps:remove_partial (without --overlaps:remove_all): apply adjustment *within* each original overlap union
         (same-origin grouped), then pack the unions relative to each other because union extents change.
 
     Notes:
@@ -344,23 +400,6 @@ def adjust_tile_spacing(
             if not changed:
                 break
 
-    def atomic_units_for(indices: List[int]) -> List[List[int]]:
-        # group same-origin inside subset
-        groups: DefaultDict[Tuple[int, int], List[int]] = defaultdict(list)
-        for ti in indices:
-            t = tiles[ti]
-            groups[(as_int(t, "row"), as_int(t, "col"))].append(ti)
-        units_local: List[List[int]] = []
-        used = set()
-        for g in groups.values():
-            if len(g) > 1:
-                units_local.append(sorted(g))
-                used.update(g)
-        for ti in indices:
-            if ti not in used:
-                units_local.append([ti])
-        return units_local
-
     overlap_unions = _group_overlaps(tiles)
 
     # Case 1: global un-overlap (mutually exclusive with include_overlap via main sanity check)
@@ -377,7 +416,7 @@ def adjust_tile_spacing(
     for union in overlap_unions:
         if len(union) <= 1:
             continue
-        pack_units_add(atomic_units_for(union))
+        pack_units_add(_containment_tree_units(tiles, union))
 
     pack_units_add(overlap_unions)
 def set_tile_spacing(
@@ -395,11 +434,11 @@ def set_tile_spacing(
     - Default (no --include_overlap):
         Overlapping tiles are grouped into overlap unions; spacing is enforced between unions.
 
-    - With legacy --include_overlap AND --overlaps:remove:
+    - With --overlaps:remove_all:
         Legacy behavior (preserved): overlapping tiles are treated as individual tiles (except same-origin
         tiles are grouped) and spacing is enforced between all tiles, effectively "unoverlapping" globally.
 
-    - With legacy --include_overlap (and WITHOUT --overlaps:remove):
+    - With --overlaps:remove_partial (and WITHOUT --overlaps:remove_all):
         New behavior: spacing is applied *inside* each original overlap union only (except same-origin grouping),
         and the union's bounding box may grow/shrink. Then unions are packed relative to each other so external
         spacing constraints are still respected as unions change size.
@@ -516,24 +555,6 @@ def set_tile_spacing(
             if not changed:
                 break
 
-    def atomic_units_for(indices: List[int]) -> List[List[int]]:
-        """Like include_overlap=True grouping, but restricted to a subset of tile indices."""
-        # group same-origin inside subset
-        groups: DefaultDict[Tuple[int, int], List[int]] = defaultdict(list)
-        for ti in indices:
-            t = tiles[ti]
-            groups[(as_int(t, "row"), as_int(t, "col"))].append(ti)
-        units_local: List[List[int]] = []
-        used = set()
-        for g in groups.values():
-            if len(g) > 1:
-                units_local.append(sorted(g))
-                used.update(g)
-        for ti in indices:
-            if ti not in used:
-                units_local.append([ti])
-        return units_local
-
     # --- Determine overlap unions from the ORIGINAL geometry (before we modify anything) ---
     # Note: we must preserve these unions even after internal unoverlap, so we compute them once.
     overlap_unions = _group_overlaps(tiles)
@@ -554,7 +575,7 @@ def set_tile_spacing(
     for union in overlap_unions:
         if len(union) <= 1:
             continue
-        pack_units(atomic_units_for(union))
+        pack_units(_containment_tree_units(tiles, union))
 
     # Step B: pack the unions relative to each other (as rigid bodies) using their NEW extents.
     pack_units(overlap_unions)

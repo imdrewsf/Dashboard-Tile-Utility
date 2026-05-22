@@ -10,9 +10,11 @@ def clipboard_get_text() -> str:
     if sys.platform.startswith("win"):
         try:
             cp = subprocess.run(
-                ["powershell", "-NoProfile", "-Command", "Get-Clipboard -Raw"],
+                ["powershell", "-NoProfile", "-Command", "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); Get-Clipboard -Raw"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 check=True,
             )
             return cp.stdout
@@ -54,9 +56,10 @@ def clipboard_set_text(text: str) -> None:
     if sys.platform.startswith("win"):
         try:
             subprocess.run(
-                ["powershell", "-NoProfile", "-Command", "Set-Clipboard -Value ([Console]::In.ReadToEnd())"],
+                ["powershell", "-NoProfile", "-Command", "[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false); Set-Clipboard -Value ([Console]::In.ReadToEnd())"],
                 input=text,
                 text=True,
+                encoding="utf-8",
                 check=True,
             )
             return

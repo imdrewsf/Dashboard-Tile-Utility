@@ -18,10 +18,9 @@ def normalize_argv(argv: List[str]) -> List[str]:
       --output_to:terminal
       --output_to:file <path>
       --output_to:hub <dashboard_url>
-      --sort_json:rci
+      --sort_json rci
       --sort_json "-rci"
-      --sort:rci                      (legacy alias)
-      --list_tiles:plain[:rci]
+      --list_tiles:plain[:i]
       --list_tiles:plain "-hwi"
       --list_tiles plain "-hwi"
       --indent:0
@@ -41,18 +40,12 @@ def normalize_argv(argv: List[str]) -> List[str]:
     while i < len(argv):
         a = argv[i]
 
-        if a.startswith("--sort_json:") or a.startswith("--sort-json:"):
-            out.append("--sort_json=" + a.split(":", 1)[1])
-        elif a.startswith("--sort:"):
-            out.append("--sort_json=" + a.split(":", 1)[1])
-        elif a in ("--sort_json", "--sort-json", "--sort"):
+        if a in ("--sort_json",):
             if i + 1 < len(argv) and looks_like_json_sort(argv[i + 1]):
                 out.append('--sort_json=' + argv[i + 1])
                 i += 1
             else:
-                out.append("--sort_json" if a != "--sort" else "--sort")
-        elif a.startswith("--order:"):
-            out.append("--order=" + a.split(":", 1)[1])
+                out.append("--sort_json")
         elif a.startswith("--indent:"):
             out += ["--indent", a.split(":", 1)[1]]
         elif a.startswith("--trim:"):
@@ -79,7 +72,7 @@ def normalize_argv(argv: List[str]) -> List[str]:
                     out.append(a)
             else:
                 out.append(a)
-        # --show_map:* and --show_axis:* are handled directly by argparse (legacy --show_axes:* also accepted)
+        # --show_map:* and --show_axis:* are handled directly by argparse
         elif a.startswith("--import:"):
             out += ["--import", a.split(":", 1)[1]]
         elif a.startswith("--merge_source:") or a.startswith("--merge-source:"):
@@ -160,8 +153,6 @@ def parse_output_to_specs(specs: Optional[List[List[str]]]) -> List[Tuple[str, O
             continue
         die("Invalid output. Use --output:terminal OR --output:clipboard OR --output:file <filename> OR --output:hub [dashboard_url].")
 
-    if not outs:
-        return [("clipboard", None)]
     return outs
 
 

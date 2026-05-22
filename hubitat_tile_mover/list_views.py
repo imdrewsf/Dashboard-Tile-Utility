@@ -36,12 +36,12 @@ def _pair_relation(a: Rect, b: Rect) -> str | None:
     return 'overlaps'
 
 def parse_list_tiles_spec(spec: str | None) -> tuple[str, str]:
-    raw = (spec or 'plain:rci').strip()
+    raw = (spec or 'plain:i').strip()
     if not raw:
-        raw = 'plain:rci'
+        raw = 'plain:i'
     parts = raw.split(':', 1)
     kind = parts[0].strip().lower() or 'plain'
-    sort_spec = (parts[1].strip() if len(parts) > 1 and parts[1].strip() else 'rci')
+    sort_spec = (parts[1].strip() if len(parts) > 1 and parts[1].strip() else 'i')
     valid = {'plain','tree','overlap','nested','conflicts'}
     if kind not in valid:
         die(f"Invalid --list_tiles '{spec}'. Use plain, tree, overlap, nested, or conflicts.")
@@ -145,7 +145,7 @@ def _plain_sort_value(key: str, row: Dict[str, str]):
 def _parse_plain_sort_spec(user_spec: str) -> List[Tuple[str, bool]]:
     spec = (user_spec or '').strip().lower()
     if spec == '':
-        spec = 'rci'
+        spec = 'i'
     valid = {'i', 'r', 'c', 'h', 'w', 'p', 'd', 't', 's'}
     out: List[Tuple[str, bool]] = []
     seen: set[str] = set()
@@ -159,7 +159,7 @@ def _parse_plain_sort_spec(user_spec: str) -> List[Tuple[str, bool]]:
         if ch not in valid:
             die(
                 f"Invalid --list_tiles plain sort '{user_spec}'. Use keys i,r,c,h,w,p,d,t,s and optional '-' for descending. "
-                f"Examples: --list_tiles:plain:rci, --list_tiles:plain:-hwi, --list_tiles:plain:-s-r"
+                f"Examples: --list_tiles:plain \"rci\", --list_tiles:plain \"-hwi\", --list_tiles:plain \"-s-r\""
             )
         if ch in seen:
             die(f"Invalid --list_tiles plain sort '{user_spec}'. Keys must not repeat.")
@@ -168,9 +168,8 @@ def _parse_plain_sort_spec(user_spec: str) -> List[Tuple[str, bool]]:
         desc_next = False
     if desc_next:
         die(f"Invalid --list_tiles plain sort '{user_spec}'. Trailing '-' must be followed by a key.")
-    for k in ['r', 'c', 'i']:
-        if k not in seen:
-            out.append((k, False))
+    if 'i' not in seen:
+        out.append(('i', False))
     return out
 
 
@@ -399,7 +398,7 @@ def render_abort_conflicts(
     conflicts_by_mid: Dict[int, List[Tuple[int, Rect]]],
     *,
     action_word: str = 'move',
-    sort_spec: str = 'rci',
+    sort_spec: str = 'i',
     detail_level: str = 'summary',
 ) -> str:
     """Render a preflight conflict report for aborted layout actions."""
@@ -458,7 +457,7 @@ def render_abort_conflicts(
             row_label = _fmt_row_ranges(row_ranges)
             lines.append(f"{idx}) {col_label} at {row_label}")
         lines.append('')
-        lines.append('Use --allow_overlap to force the action, or --skip_overlap to skip only the blocked tiles.')
+        lines.append('Use --overlaps:allow to force the action, or --overlaps:skip to skip only the blocked tiles.')
         lines.append('Use --show_map:conflicts to view the conflict area.')
         lines.append('Use --verbose for detailed conflict pairs, or --debug for full diagnostic output.')
         return lines
@@ -471,7 +470,7 @@ def render_abort_conflicts(
         ])
         more = '' if len(conflicts_by_mid) <= 10 else f" (and {len(conflicts_by_mid) - 10} more)"
         return [
-            f"Destination conflicts detected. Re-run with --allow_overlap or --skip_overlap. {details}{more}"
+            f"Destination conflicts detected. Re-run with --overlaps:allow or --overlaps:skip. {details}{more}"
         ]
 
     if detail_level == 'summary':
@@ -605,5 +604,5 @@ def render_abort_conflicts(
             lines.append(tile_summary_line(node_tile(n), 'blocking', blockers))
         lines.append('')
 
-    lines.append('Re-run with --allow_overlap to force the action, or --skip_overlap to skip only the blocked tiles.')
+    lines.append('Re-run with --overlaps:allow to force the action, or --overlaps:skip to skip only the blocked tiles.')
     return "\n".join(lines) + "\n"

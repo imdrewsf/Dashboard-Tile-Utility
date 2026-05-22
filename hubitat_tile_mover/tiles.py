@@ -1,8 +1,23 @@
 from __future__ import annotations
 
+import re
+
 from typing import Any, Dict, List, Tuple, Optional
 
 from .util import die
+
+
+_INT_RE = re.compile(r"^[+-]?\d+$")
+
+
+def _int_from_string_or_none(value: str) -> Optional[int]:
+    s = value.strip()
+    if not _INT_RE.fullmatch(s):
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        return None
 
 
 def as_int(tile: Dict[str, Any], key: str) -> int:
@@ -13,8 +28,10 @@ def as_int(tile: Dict[str, Any], key: str) -> int:
         die(f"Tile key '{key}' must be an int, got bool: {tile}")
     if isinstance(v, int):
         return v
-    if isinstance(v, str) and v.strip().lstrip("+-").isdigit():
-        return int(v.strip())
+    if isinstance(v, str):
+        n = _int_from_string_or_none(v)
+        if n is not None:
+            return n
     die(f"Tile key '{key}' must be an int, got {type(v).__name__}={v!r}: {tile}")
     return 0  # unreachable
 
@@ -26,11 +43,12 @@ def _pos_int_from_value(tile: Dict[str, Any], key: str, v: Any) -> int:
         n = v
     elif isinstance(v, float) and float(v).is_integer():
         n = int(v)
-    elif isinstance(v, str) and v.strip().lstrip("+-").isdigit():
-        n = int(v.strip())
-    else:
-        # Allow numeric strings like "2.0" (some exporters stringify numbers).
-        if isinstance(v, str):
+    elif isinstance(v, str):
+        n0 = _int_from_string_or_none(v)
+        if n0 is not None:
+            n = n0
+        else:
+            # Allow numeric strings like "2.0" (some exporters stringify numbers).
             try:
                 f = float(v.strip())
                 if float(f).is_integer():
@@ -39,8 +57,8 @@ def _pos_int_from_value(tile: Dict[str, Any], key: str, v: Any) -> int:
                     raise ValueError()
             except Exception:
                 die(f"Tile key '{key}' must be a positive int, got {type(v).__name__}={v!r}: {tile}")
-        else:
-            die(f"Tile key '{key}' must be a positive int, got {type(v).__name__}={v!r}: {tile}")
+    else:
+        die(f"Tile key '{key}' must be a positive int, got {type(v).__name__}={v!r}: {tile}")
     if n < 1:
         die(f"Tile key '{key}' must be >= 1, got {n}: {tile}")
     return n

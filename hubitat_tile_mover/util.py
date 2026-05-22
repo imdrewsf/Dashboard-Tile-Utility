@@ -86,10 +86,12 @@ def dlog(debug: bool, msg: str) -> None:
 
 
 def normalize_newlines(text: str, mode: str) -> str:
+    # Normalize all common newline forms first, including old-Mac lone CR.
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
     if mode == "crlf":
-        return text.replace("\r\n", "\n").replace("\n", "\r\n")
+        return normalized.replace("\n", "\r\n")
     if mode == "lf":
-        return text.replace("\r\n", "\n")
+        return normalized
     return text
 
 

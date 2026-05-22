@@ -27,7 +27,7 @@ def _parse_sort_spec(user_spec: str) -> List[Tuple[str, bool]]:
     """
     spec = (user_spec or "").strip().lower()
     if spec == "":
-        spec = "irc"
+        spec = "i"
 
     out: List[Tuple[str, bool]] = []
     seen: set[str] = set()
@@ -42,36 +42,35 @@ def _parse_sort_spec(user_spec: str) -> List[Tuple[str, bool]]:
             continue
         if ch not in valid:
             die(
-                f"Invalid --sort '{user_spec}'. Use keys i,r,c (id,row,col) and optional '-' for descending. "
-
-                f"Examples: --sort:rci, --sort:-rci, --sort:r-c-i"
+                f"Invalid --sort_json '{user_spec}'. Use keys i,r,c (id,row,col) and optional '-' for descending. "
+                f"Examples: --sort_json rci, --sort_json \"-rci\", --sort_json r-c-i"
             )
         if ch in seen:
-            die(f"Invalid --sort '{user_spec}'. Keys must not repeat.")
+            die(f"Invalid --sort_json '{user_spec}'. Keys must not repeat.")
         out.append((ch, desc_next))
         seen.add(ch)
         desc_next = False
 
     if desc_next:
-        die(f"Invalid --sort '{user_spec}'. Trailing '-' must be followed by a key (i,r,c).")
+        die(f"Invalid --sort_json '{user_spec}'. Trailing '-' must be followed by a key (i,r,c).")
 
     return out
 
 
 def complete_sort_spec(user_spec: str) -> List[Tuple[str, bool]]:
     """
-    Completes user spec by appending any missing keys in default priority order r,c,i (ascending).
+    Completes user spec by appending tile id as the final tie-breaker unless it was explicitly specified.
 
     Example:
-      user_spec = "r"    -> r, c, i
-      user_spec = "i"    -> i, r, c
-      user_spec = "-r"   -> r desc, c asc, i asc
+      user_spec = ""     -> i
+      user_spec = "r"    -> r, i
+      user_spec = "i"    -> i
+      user_spec = "-r"   -> r desc, i asc
     """
     parsed = _parse_sort_spec(user_spec)
     seen = {k for k, _ in parsed}
-    for k in ["r", "c", "i"]:
-        if k not in seen:
-            parsed.append((k, False))
+    if "i" not in seen:
+        parsed.append(("i", False))
     return parsed
 
 

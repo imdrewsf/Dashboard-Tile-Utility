@@ -20,8 +20,12 @@ def _ensure_unique_id(tile: Dict[str, Any], used: set[int], next_id: int, debug:
     src_id = as_int(tile, "id")
     if src_id not in used:
         used.add(src_id)
+        while next_id in used:
+            next_id += 1
         return next_id
 
+    while next_id in used:
+        next_id += 1
     new_id = next_id
     set_int_like(tile, "id", new_id)
     used.add(new_id)
@@ -58,13 +62,12 @@ def _conflict_scan_and_append(
         if show_map:
             focus = conflict_rects_from_details(conflicts_by_mid)
             try:
-                focus_arg = focus if map_focus == 'conflict' else None
-                tiles_for_map = dest_tiles if (map_focus == 'full' or map_focus == 'no_scale') else (stationary + copies)
                 # Conflict map: gray=stationary, green=moving/copied (non-conflict), red=conflict
                 tiles_for_map = stationary
                 hi_rects = [rect(t) for t in copies]
                 full_like = (map_focus == 'full' or map_focus == 'no_scale')
                 bounds_rects = [rect(t) for t in dest_tiles] if full_like else (focus if map_focus == 'conflict' else None)
+                import sys as _sys
                 print(
                     render_tile_map(
                         tiles_for_map,
@@ -77,6 +80,7 @@ def _conflict_scan_and_append(
                         show_axes=show_axes,
                     ),
                     end='',
+                    file=_sys.stderr,
                 )
             except Exception:
                 pass
@@ -154,6 +158,8 @@ def copy_cols(
         label="copy_cols",
         show_map=show_map,
         map_focus=map_focus,
+        show_ids=show_ids,
+        show_axes=show_axes,
     )
 
     return {k: v for k, v in id_map.items() if v in appended_ids}
@@ -215,6 +221,8 @@ def copy_rows(
         label="copy_rows",
         show_map=show_map,
         map_focus=map_focus,
+        show_ids=show_ids,
+        show_axes=show_axes,
     )
 
     return {k: v for k, v in id_map.items() if v in appended_ids}
@@ -291,6 +299,8 @@ def copy_range(
         label="copy_range",
         show_map=show_map,
         map_focus=map_focus,
+        show_ids=show_ids,
+        show_axes=show_axes,
     )
 
     return {k: v for k, v in id_map.items() if v in appended_ids}

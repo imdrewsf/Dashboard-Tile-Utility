@@ -5,6 +5,8 @@ from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 import re
 
+from .util import wlog
+
 _TILE_ID_PATTERNS = [
     re.compile(r"#tile-(\d+)\b"),
     re.compile(r"\.tile-(\d+)\b"),
@@ -19,6 +21,8 @@ _COMMENT_TILE_ID_PATTERNS = [
     re.compile(r"\btile-(\d+)\b"),
 ]
 
+
+_WARNED_UNTERMINATED_BLOCK_COMMENT = False
 
 def _split_selector_list(prelude: str) -> List[str]:
     """Split a selector list into items.
@@ -189,7 +193,10 @@ def _strip_block_comments_outside_strings(text: str) -> str:
         if ch == "/" and (i + 1) < n and text[i + 1] == "*":
             endc = text.find("*/", i + 2)
             if endc == -1:
-                # Unterminated comment: drop the remainder.
+                global _WARNED_UNTERMINATED_BLOCK_COMMENT
+                if not _WARNED_UNTERMINATED_BLOCK_COMMENT:
+                    wlog("CSS contains an unterminated block comment; the remainder of that statement will be ignored while scanning CSS.")
+                    _WARNED_UNTERMINATED_BLOCK_COMMENT = True
                 break
             i = endc + 2
             continue
