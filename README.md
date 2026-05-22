@@ -14,7 +14,7 @@ Dashboard Tile Utility (`dtu`) edits the `tiles` list inside a Hubitat dashboard
 - **Tile lists** — generate tables of tiles and their attributes.
 - **Undo / backup** — automatic backups before changes, with safeguards for direct-to-hub restores.
 
-See the **[full documentation](Documentation/README.md)** for every action, option, and example.
+See the **[full documentation](Documentation/README.md)** for every action, option, and example.   **[PDF Version](Documentation/DTU_Documentation_v1.0.0.pdf)**
 
 ## Requirements
 
