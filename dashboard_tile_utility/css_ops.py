@@ -266,7 +266,7 @@ def _duplicate_standalone_comment(comment_text: str, old_id: int, new_id: int) -
     inner2 = re.sub(rf"(['\"]tile-){old_id}(['\"])", rf"\g<1>{new_id}\2", inner2)
     inner2 = re.sub(rf"\btile-{old_id}\b", f"tile-{new_id}", inner2)
 
-    note = f"[hubitat_tile_mover] duplicated from tile-{old_id} to tile-{new_id}."
+    note = f"[dashboard_tile_utility] duplicated from tile-{old_id} to tile-{new_id}."
     return f"/* {note} {inner2} */"
 
 
@@ -439,7 +439,7 @@ def process_standalone_comments_for_removed_tiles(css: str, removed_ids: Iterabl
 
             # Keep comment but neutralize removed tile ids and annotate.
             neutralized, affected = _neutralize_removed_tile_ids_in_comment(node.text, ids)
-            note = f"[hubitat_tile_mover] tile(s) removed; CSS rules removed for: {', '.join('tile_'+str(i) for i in sorted(affected))}."
+            note = f"[dashboard_tile_utility] tile(s) removed; CSS rules removed for: {', '.join('tile_'+str(i) for i in sorted(affected))}."
             txt = neutralized.strip()
             if txt.startswith("/*") and txt.endswith("*/"):
                 inner = txt[2:-2].strip()
@@ -498,7 +498,7 @@ def process_standalone_comments_for_css_cleared_tiles(css: str, tile_ids: Iterab
 
             neutralized, affected = _neutralize_removed_tile_ids_in_comment(node.text, ids)
             note = (
-                f"[hubitat_tile_mover] CSS rules cleared for: "
+                f"[dashboard_tile_utility] CSS rules cleared for: "
                 f"{', '.join('tile_'+str(i) for i in sorted(affected))}."
             )
             txt = neutralized.strip()

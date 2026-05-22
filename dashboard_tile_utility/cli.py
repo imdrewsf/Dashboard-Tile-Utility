@@ -35,10 +35,11 @@ class _SpacingAddModeAction(argparse.Action):
         setattr(namespace, self.dest, (mode, cells))
 
 
-BRIEF_HELP = r'''Adjust and/or edit the "tiles" list in a Hubitat Dashboard layout JSON.
+BRIEF_HELP = r'''Dashboard Tile Utility (dtu)
+Adjust and/or edit the "tiles" list in a Hubitat Dashboard layout JSON.
 
 Usage:
-  hubitat_tile_mover.py [options]
+  dtu [options]
 
 Main actions (choose one):
   --insert:rows|cols
@@ -68,7 +69,8 @@ Help:
   --help:full  full help
   --version'''
 
-SHORT_HELP = r'''Adjust and/or edit the "tiles" list in a Hubitat Dashboard layout JSON while preserving everything else unchanged.
+SHORT_HELP = r'''Dashboard Tile Utility (dtu)
+Adjust and/or edit the "tiles" list in a Hubitat Dashboard layout JSON while preserving everything else unchanged.
 
 Import (one; default: clipboard):
   --import:clipboard
@@ -168,7 +170,7 @@ Help:
   --help:full
   --version'''
 
-FULL_HELP = r'''hubitat_tile_mover - adjust a Hubitat Dashboard layout by operating on the "tiles" list while preserving everything else unchanged.
+FULL_HELP = r'''Dashboard Tile Utility (dtu) - adjust a Hubitat Dashboard layout by operating on the "tiles" list while preserving everything else unchanged.
 
 Import (input) (only one; default: clipboard):
   --import:clipboard
@@ -476,7 +478,7 @@ def build_parser() -> argparse.ArgumentParser:
         add_help=False,
         allow_abbrev=False,
         # Keep argparse usage line short; help text above provides full documentation.
-        usage="hubitat_tile_mover.py [options]",
+        usage="dtu [options]",
     )
 
     p.add_argument("-h", action=HelpBriefAction, nargs=0, help="Show very brief help and exit.")
@@ -485,7 +487,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--version",
         action="version",
-        version=f"hubitat_tile_mover {__version__}",
+        version=f"Dashboard Tile Utility (dtu) {__version__}",
         help="Print build version and exit.",
     )
 

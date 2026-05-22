@@ -396,7 +396,7 @@ def _backup_path_for_url(dashboard_url: str) -> str:
     host = (u.hostname or "hub").replace(":", "_")
     m = re.search(r"/dashboard/(\d+)", u.path)
     dash = m.group(1) if m else "dashboard"
-    return os.path.join(_app_data_dir(), f"hubitat_tile_mover_backup_{host}_{dash}.json")
+    return os.path.join(_app_data_dir(), f"dashboard_tile_utility_backup_{host}_{dash}.json")
 
 def _write_backup(path: str, obj: object) -> None:
     import json
@@ -413,7 +413,7 @@ def _write_temp_merge_source(obj: object) -> str:
     """Write a temporary JSON file for merge_url imports; returns filename."""
     import json
     import tempfile
-    fd, path = tempfile.mkstemp(prefix="hubitat_tile_mover_merge_", suffix=".json")
+    fd, path = tempfile.mkstemp(prefix="dashboard_tile_utility_merge_", suffix=".json")
     # mkstemp returns an OS-level fd; wrap it in a file object
     with open(fd, "w", encoding="utf-8") as f:  # type: ignore[arg-type]
         json.dump(obj, f, indent=2, ensure_ascii=False)
@@ -429,7 +429,7 @@ def _app_data_dir() -> str:
         xdg = os.getenv("XDG_STATE_HOME") or os.getenv("XDG_DATA_HOME")
         if xdg:
             base = xdg
-    path = os.path.join(base, "hubitat_tile_mover")
+    path = os.path.join(base, "dashboard_tile_utility")
     try:
         os.makedirs(path, exist_ok=True)
     except Exception:
@@ -439,7 +439,7 @@ def _app_data_dir() -> str:
 
 
 def _state_path() -> str:
-    return os.path.join(_app_data_dir(), "hubitat_tile_mover_last_run.json")
+    return os.path.join(_app_data_dir(), "dashboard_tile_utility_last_run.json")
 
 def _write_state(state: dict) -> None:
     import json
@@ -582,8 +582,8 @@ def main(argv: Optional[List[str]] = None) -> None:
 
         # Load last-run state (new location). Fall back to legacy CWD file if present.
         st_path = _state_path()
-        if not os.path.exists(st_path) and os.path.exists("hubitat_tile_mover_last_run.json"):
-            st_path = "hubitat_tile_mover_last_run.json"
+        if not os.path.exists(st_path) and os.path.exists("dashboard_tile_utility_last_run.json"):
+            st_path = "dashboard_tile_utility_last_run.json"
         if not os.path.exists(st_path):
             die("No last-run state found; nothing to undo.")
         try:
@@ -864,7 +864,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         for k, v in outputs:
             outs_desc.append(f"{k}({v})" if v else k)
 
-        vlog(True, "=== hubitat_tile_mover planned actions ===")
+        vlog(True, "=== Dashboard Tile Utility planned actions ===")
         vlog(True, f"Import: {import_kind}{' ' + import_path if import_path else ''}")
         vlog(True, f"Outputs: {', '.join(outs_desc)}")
         vlog(True, f"Output format: {args.output_format}")
@@ -907,7 +907,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         else:
             # Write to a temporary file; only commit if the run completes successfully.
             import tempfile
-            fd, backup_tmp_path = tempfile.mkstemp(prefix="hubitat_tile_mover_backup_", suffix=".json")
+            fd, backup_tmp_path = tempfile.mkstemp(prefix="dashboard_tile_utility_backup_", suffix=".json")
             os.close(fd)
             _write_backup(backup_tmp_path, obj)
             backup_obj = _copy.deepcopy(obj)  # immutable snapshot

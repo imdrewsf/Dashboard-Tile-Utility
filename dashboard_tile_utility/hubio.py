@@ -20,7 +20,7 @@ class HubUrls:
     request_token: str
 
 def _read_url_text(url: str, *, timeout: int = 20) -> str:
-    req = urllib.request.Request(url, headers={"User-Agent": "hubitat_tile_mover/rc"})
+    req = urllib.request.Request(url, headers={"User-Agent": "dashboard_tile_utility/rc"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         data = resp.read()
     return data.decode("utf-8", errors="replace")
@@ -78,7 +78,7 @@ def _hub_post_once(layout_url: str, obj: Any, *, verbose: bool = False, debug: b
         method="POST",
         headers={
             "Content-Type": "application/json; charset=utf-8",
-            "User-Agent": "hubitat_tile_mover/rc",
+            "User-Agent": "dashboard_tile_utility/rc",
         },
     )
     with urllib.request.urlopen(req, timeout=25) as resp:
