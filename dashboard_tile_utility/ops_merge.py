@@ -23,6 +23,7 @@ from .selectors import select_tiles_by_col_range, select_tiles_by_rect_range, se
 from .tiles import as_int, rect, set_int_like, verify_tiles_minimum
 from .util import die, dlog, vlog
 from .map_view import render_tile_map, conflict_rects_from_details
+from .ops_push import PushSpec, apply_push_for_destination
 
 
 def _load_merge_tiles_from_file(path: str) -> List[Dict[str, Any]]:
@@ -73,7 +74,8 @@ def _conflict_scan_and_append(
     copies: List[Dict[str, Any]],
     allow_overlap: bool,
     skip_overlap: bool,
-    show_map: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
     map_focus: str = 'full',
     show_ids: bool = False,
     show_axes: str = 'none',
@@ -89,6 +91,21 @@ def _conflict_scan_and_append(
     conflicts_by_mid, total_pairs = scan_move_conflicts(copies, stationary, moved_rect)
     if conflicts_by_mid:
         vlog(verbose, f"[{label}] conflicts detected: {len(conflicts_by_mid)} merged tile(s), {total_pairs} overlap pair(s)")
+        if push_spec is not None:
+            apply_push_for_destination(
+                stationary,
+                [rect(t) for t in copies],
+                conflicts_by_mid,
+                push_spec,
+                verbose=verbose,
+                debug=debug,
+                label=label,
+            )
+            conflicts_by_mid, total_pairs = scan_move_conflicts(copies, stationary, moved_rect)
+            if conflicts_by_mid:
+                vlog(verbose, f"[{label}] conflicts remaining after push: {len(conflicts_by_mid)} merged tile(s), {total_pairs} overlap pair(s)")
+            else:
+                vlog(verbose, f"[{label}] push resolved destination conflicts")
 
     if conflicts_by_mid and not allow_overlap and not skip_overlap:
         sample = list(conflicts_by_mid.items())[:10]
@@ -146,7 +163,8 @@ def merge_cols(
     include_overlap: bool,
     allow_overlap: bool,
     skip_overlap: bool,
-    show_map: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
     map_focus: str = 'full',
     show_ids: bool = False,
     show_axes: str = 'none',
@@ -190,6 +208,7 @@ def merge_cols(
         copies=moving,
         allow_overlap=allow_overlap,
         skip_overlap=skip_overlap,
+        push_spec=push_spec,
         verbose=verbose,
         debug=debug,
         label="merge_cols",
@@ -212,7 +231,8 @@ def merge_rows(
     include_overlap: bool,
     allow_overlap: bool,
     skip_overlap: bool,
-    show_map: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
     map_focus: str = 'full',
     show_ids: bool = False,
     show_axes: str = 'none',
@@ -256,6 +276,7 @@ def merge_rows(
         copies=moving,
         allow_overlap=allow_overlap,
         skip_overlap=skip_overlap,
+        push_spec=push_spec,
         verbose=verbose,
         debug=debug,
         label="merge_rows",
@@ -281,7 +302,8 @@ def merge_range(
     include_overlap: bool,
     allow_overlap: bool,
     skip_overlap: bool,
-    show_map: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
     map_focus: str = 'full',
     show_ids: bool = False,
     show_axes: str = 'none',
@@ -338,6 +360,7 @@ def merge_range(
         copies=moving,
         allow_overlap=allow_overlap,
         skip_overlap=skip_overlap,
+        push_spec=push_spec,
         verbose=verbose,
         debug=debug,
         label="merge_range",

@@ -16,13 +16,14 @@ from __future__ import annotations
 
 import sys as _sys
 
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from .geometry import rects_overlap
 from .selectors import select_tiles_by_col_range, select_tiles_by_row_range, select_tiles_by_rect_range
 from .tiles import as_int, rect, set_int_like
 from .util import die, dlog, vlog
 from .map_view import render_tile_map, conflict_rects_from_details
+from .ops_push import PushSpec, apply_push_for_destination
 
 
 def scan_move_conflicts(
@@ -63,7 +64,8 @@ def move_cols(
     include_overlap: bool,
     allow_overlap: bool,
     skip_overlap: bool,
-    show_map: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
     map_focus: str = 'full',
     show_ids: bool = False,
     show_axes: str = 'none',
@@ -92,6 +94,21 @@ def move_cols(
 
     if conflicts_by_mid:
         vlog(verbose, f"[move_cols] conflicts detected: {len(conflicts_by_mid)} moving tiles, {total_pairs} overlap pair(s)")
+        if push_spec is not None:
+            apply_push_for_destination(
+                stationary,
+                [moved_rect(t) for t in moving],
+                conflicts_by_mid,
+                push_spec,
+                verbose=verbose,
+                debug=debug,
+                label="move_cols",
+            )
+            conflicts_by_mid, total_pairs = scan_move_conflicts(moving, stationary, moved_rect)
+            if conflicts_by_mid:
+                vlog(verbose, f"[move_cols] conflicts remaining after push: {len(conflicts_by_mid)} moving tiles, {total_pairs} overlap pair(s)")
+            else:
+                vlog(verbose, "[move_cols] push resolved destination conflicts")
 
     if conflicts_by_mid and not allow_overlap and not skip_overlap:
         sample = list(conflicts_by_mid.items())[:10]
@@ -150,7 +167,8 @@ def move_rows(
     include_overlap: bool,
     allow_overlap: bool,
     skip_overlap: bool,
-    show_map: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
     map_focus: str = 'full',
     show_ids: bool = False,
     show_axes: str = 'none',
@@ -179,6 +197,21 @@ def move_rows(
 
     if conflicts_by_mid:
         vlog(verbose, f"[move_rows] conflicts detected: {len(conflicts_by_mid)} moving tiles, {total_pairs} overlap pair(s)")
+        if push_spec is not None:
+            apply_push_for_destination(
+                stationary,
+                [moved_rect(t) for t in moving],
+                conflicts_by_mid,
+                push_spec,
+                verbose=verbose,
+                debug=debug,
+                label="move_rows",
+            )
+            conflicts_by_mid, total_pairs = scan_move_conflicts(moving, stationary, moved_rect)
+            if conflicts_by_mid:
+                vlog(verbose, f"[move_rows] conflicts remaining after push: {len(conflicts_by_mid)} moving tiles, {total_pairs} overlap pair(s)")
+            else:
+                vlog(verbose, "[move_rows] push resolved destination conflicts")
 
     if conflicts_by_mid and not allow_overlap and not skip_overlap:
         sample = list(conflicts_by_mid.items())[:10]
@@ -240,7 +273,8 @@ def move_range(
     include_overlap: bool,
     allow_overlap: bool,
     skip_overlap: bool,
-    show_map: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
     map_focus: str = 'full',
     show_ids: bool = False,
     show_axes: str = 'none',
@@ -283,6 +317,21 @@ def move_range(
 
     if conflicts_by_mid:
         vlog(verbose, f"[move_range] conflicts detected: {len(conflicts_by_mid)} moving tiles, {total_pairs} overlap pair(s)")
+        if push_spec is not None:
+            apply_push_for_destination(
+                stationary,
+                [moved_rect(t) for t in moving],
+                conflicts_by_mid,
+                push_spec,
+                verbose=verbose,
+                debug=debug,
+                label="move_range",
+            )
+            conflicts_by_mid, total_pairs = scan_move_conflicts(moving, stationary, moved_rect)
+            if conflicts_by_mid:
+                vlog(verbose, f"[move_range] conflicts remaining after push: {len(conflicts_by_mid)} moving tiles, {total_pairs} overlap pair(s)")
+            else:
+                vlog(verbose, "[move_range] push resolved destination conflicts")
 
     if conflicts_by_mid and not allow_overlap and not skip_overlap:
         sample = list(conflicts_by_mid.items())[:10]

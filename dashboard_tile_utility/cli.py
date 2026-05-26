@@ -163,6 +163,7 @@ Modifiers:
   --col_range <start> <end>     insert:rows and delete:rows only
   --overlaps:allow              move/copy/merge, insert rows/cols, and delete rows/cols
   --overlaps:skip               move/copy/merge only; mutually exclusive with --overlaps:allow
+  --push:rows|cols|all BUFFER   move/copy/merge only; push existing tiles to make destination space
   --force
   --css:cleanup
   --css:ignore
@@ -220,13 +221,13 @@ Main actions (mutually exclusive; choose at most ONE per run)
     --move:cols START_COL END_COL DEST_START_COL
     --move:rows START_ROW END_ROW DEST_START_ROW
     --move:range SRC_TOP_ROW SRC_LEFT_COL SRC_BOTTOM_ROW SRC_RIGHT_COL DEST_TOP_ROW DEST_LEFT_COL
-    Modifiers: --select:include_partial, --select:exclude_partial, --overlaps:allow, --overlaps:skip
+    Modifiers: --select:include_partial, --select:exclude_partial, --overlaps:allow, --overlaps:skip, --push:rows|cols|all BUFFER
 
   Copy / duplicate existing tiles:
     --copy:cols START_COL END_COL DEST_START_COL
     --copy:rows START_ROW END_ROW DEST_START_ROW
     --copy:range SRC_TOP_ROW SRC_LEFT_COL SRC_BOTTOM_ROW SRC_RIGHT_COL DEST_TOP_ROW DEST_LEFT_COL
-    Modifiers: --select:include_partial, --select:exclude_partial, --overlaps:allow, --overlaps:skip, --css:ignore
+    Modifiers: --select:include_partial, --select:exclude_partial, --overlaps:allow, --overlaps:skip, --push:rows|cols|all BUFFER, --css:ignore
 
   Merge / import tiles from another layout:
     --merge_source:file <filename>
@@ -234,7 +235,7 @@ Main actions (mutually exclusive; choose at most ONE per run)
     --merge:cols START_COL END_COL DEST_START_COL
     --merge:rows START_ROW END_ROW DEST_START_ROW
     --merge:range SRC_TOP_ROW SRC_LEFT_COL SRC_BOTTOM_ROW SRC_RIGHT_COL DEST_TOP_ROW DEST_LEFT_COL
-    Modifiers: --select:include_partial, --select:exclude_partial, --overlaps:allow, --overlaps:skip, --css:ignore
+    Modifiers: --select:include_partial, --select:exclude_partial, --overlaps:allow, --overlaps:skip, --push:rows|cols|all BUFFER, --css:ignore
 
   Delete rows / columns (removes matched tiles and shifts following tiles up / left):
     --delete:rows START_ROW END_ROW
@@ -357,6 +358,9 @@ Modifiers
     --overlaps:allow   move/copy/merge: proceed even if destination conflicts exist
                        delete rows/cols: proceed even if post-delete shift conflicts would occur
     --overlaps:skip    move/copy/merge only: skip only the tiles that would conflict in the destination
+    --push:rows BUFFER move/copy/merge only: if destination conflicts exist, push existing tiles down to make room plus BUFFER empty row(s) below
+    --push:cols BUFFER move/copy/merge only: if destination conflicts exist, push existing tiles right to make room plus BUFFER empty column(s) to the right
+    --push:all BUFFER  move/copy/merge only: apply both row and column push behavior
     default            abort before changing anything if destination conflicts exist
 
   Confirmation suppression:
@@ -890,6 +894,12 @@ def build_parser() -> argparse.ArgumentParser:
     conflict.add_argument("--overlaps:skip", dest="skip_overlap", action="store_true", help="(see --help:full for details)")
     conflict.add_argument("--overlaps:remove_partial", dest="remove_overlap_partial", action="store_true", help="(see --help:full for details)")
     conflict.add_argument("--overlaps:remove_all", dest="remove_overlap_all", action="store_true", help="(see --help:full for details)")
+
+    push_grp = p.add_argument_group("Push Policy")
+    push = push_grp.add_mutually_exclusive_group(required=False)
+    push.add_argument("--push:rows", dest="push_rows", metavar="BUFFER", type=int, help="(see --help:full for details)")
+    push.add_argument("--push:cols", dest="push_cols", metavar="BUFFER", type=int, help="(see --help:full for details)")
+    push.add_argument("--push:all", dest="push_all", metavar="BUFFER", type=int, help="(see --help:full for details)")
 
     safety_grp = p.add_argument_group("Safety")
     safety_grp.add_argument("--force", action="store_true", help="(see --help:full for details)")

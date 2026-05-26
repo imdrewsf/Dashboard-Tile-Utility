@@ -22,6 +22,7 @@ from .selectors import select_tiles_by_col_range, select_tiles_by_row_range, sel
 from .tiles import as_int, rect, set_int_like
 from .util import die, dlog, vlog
 from .map_view import render_tile_map, conflict_rects_from_details
+from .ops_push import PushSpec, apply_push_for_destination
 
 def _next_id_state(dest_tiles: List[Dict[str, Any]], *, reserved_ids: Optional[Set[int]] = None) -> tuple[set[int], int]:
     used = {as_int(t, "id") for t in dest_tiles}
@@ -52,7 +53,8 @@ def _conflict_scan_and_append(
     copies: List[Dict[str, Any]],
     allow_overlap: bool,
     skip_overlap: bool,
-    show_map: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
     map_focus: str = 'full',
     show_ids: bool = False,
     show_axes: str = 'none',
@@ -68,6 +70,21 @@ def _conflict_scan_and_append(
     conflicts_by_mid, total_pairs = scan_move_conflicts(copies, stationary, moved_rect)
     if conflicts_by_mid:
         vlog(verbose, f"[{label}] conflicts detected: {len(conflicts_by_mid)} copied tiles, {total_pairs} overlap pair(s)")
+        if push_spec is not None:
+            apply_push_for_destination(
+                stationary,
+                [rect(t) for t in copies],
+                conflicts_by_mid,
+                push_spec,
+                verbose=verbose,
+                debug=debug,
+                label=label,
+            )
+            conflicts_by_mid, total_pairs = scan_move_conflicts(copies, stationary, moved_rect)
+            if conflicts_by_mid:
+                vlog(verbose, f"[{label}] conflicts remaining after push: {len(conflicts_by_mid)} copied tile(s), {total_pairs} overlap pair(s)")
+            else:
+                vlog(verbose, f"[{label}] push resolved destination conflicts")
 
     if conflicts_by_mid and not allow_overlap and not skip_overlap:
         sample = list(conflicts_by_mid.items())[:10]
@@ -124,7 +141,8 @@ def copy_cols(
     include_overlap: bool,
     allow_overlap: bool,
     skip_overlap: bool,
-    show_map: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
     map_focus: str = 'full',
     show_ids: bool = False,
     show_axes: str = 'none',
@@ -167,6 +185,7 @@ def copy_cols(
         copies=copies,
         allow_overlap=allow_overlap,
         skip_overlap=skip_overlap,
+        push_spec=push_spec,
         verbose=verbose,
         debug=debug,
         label="copy_cols",
@@ -187,7 +206,8 @@ def copy_rows(
     include_overlap: bool,
     allow_overlap: bool,
     skip_overlap: bool,
-    show_map: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
     map_focus: str = 'full',
     show_ids: bool = False,
     show_axes: str = 'none',
@@ -230,6 +250,7 @@ def copy_rows(
         copies=copies,
         allow_overlap=allow_overlap,
         skip_overlap=skip_overlap,
+        push_spec=push_spec,
         verbose=verbose,
         debug=debug,
         label="copy_rows",
@@ -253,7 +274,8 @@ def copy_range(
     include_overlap: bool,
     allow_overlap: bool,
     skip_overlap: bool,
-    show_map: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
     map_focus: str = 'full',
     show_ids: bool = False,
     show_axes: str = 'none',
@@ -308,6 +330,7 @@ def copy_range(
         copies=copies,
         allow_overlap=allow_overlap,
         skip_overlap=skip_overlap,
+        push_spec=push_spec,
         verbose=verbose,
         debug=debug,
         label="copy_range",

@@ -102,6 +102,23 @@ def _spacing_include_overlap(args) -> bool:
     return bool(getattr(args, "remove_overlap_partial", False))
 
 
+def _push_spec(args) -> Optional[Tuple[str, int]]:
+    """Return requested move/copy/merge push mode and buffer, if any."""
+    specs = []
+    for mode, attr in (("rows", "push_rows"), ("cols", "push_cols"), ("all", "push_all")):
+        value = getattr(args, attr, None)
+        if value is not None:
+            specs.append((mode, int(value)))
+    if not specs:
+        return None
+    if len(specs) > 1:
+        die("Only one of --push:rows, --push:cols, or --push:all may be specified.")
+    mode, buffer = specs[0]
+    if buffer < 0:
+        die(f"--push:{mode} BUFFER must be >= 0, got {buffer}.")
+    return (mode, buffer)
+
+
 def _parse_inclusive_range(name: str, pair: Optional[List[int]]) -> Optional[Tuple[int, int]]:
     if pair is None:
         return None
@@ -498,6 +515,7 @@ def main(argv: Optional[List[str]] = None) -> None:
 
     # Option sanity checks
     selection_mode = _selection_mode(args)
+    push_spec = _push_spec(args)
 
     if selection_mode != "default" and (getattr(args, "spacing_add", None) is not None or getattr(args, "spacing_set", None) is not None):
         die("ERROR: --select:* is not valid with --spacing_add:* or --spacing_set:*. Spacing uses its own overlap handling.")
@@ -853,6 +871,12 @@ def main(argv: Optional[List[str]] = None) -> None:
         or args.insert_rows or args.insert_cols
     ):
         die("--overlaps:allow is only valid with --move_*, --copy_*, --merge_*, --delete_rows, --delete_cols, --insert_rows, or --insert_cols commands.")
+    if push_spec is not None and not (
+        args.move_cols or args.move_rows or args.move_range
+        or args.copy_cols or args.copy_rows or args.copy_range
+        or args.merge_cols or args.merge_rows or args.merge_range
+    ):
+        die("--push:rows, --push:cols, and --push:all are only valid with --move_*, --copy_*, or --merge_* commands.")
     # --force is allowed for any action that would otherwise prompt for confirmation.
 
     # Copy-tile-css modes are expressed as action switches (mutually exclusive).
@@ -886,6 +910,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         vlog(True, f"Newlines: {args.newline}")
         vlog(True, f"select_mode={selection_mode} spacing_overlap_union_mode={_spacing_include_overlap(args)} force={bool(args.force)}")
         vlog(True, f"allow_overlap={bool(args.allow_overlap)} skip_overlap={bool(args.skip_overlap)}")
+        vlog(True, f"push={push_spec if push_spec is not None else '(none)'}")
         vlog(True, f"Trim: {args.trim if args.trim is not None else '(none)'} (do_left={do_left} do_top={do_top})")
         if args.sort is not None:
             spec = args.sort
@@ -1164,6 +1189,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             include_overlap=selection_mode,
             allow_overlap=args.allow_overlap,
             skip_overlap=args.skip_overlap,
+            push_spec=push_spec,
             show_map=show_map,
             map_focus=map_focus,
             show_ids=show_ids,
@@ -1182,6 +1208,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             include_overlap=selection_mode,
             allow_overlap=args.allow_overlap,
             skip_overlap=args.skip_overlap,
+            push_spec=push_spec,
             show_map=show_map,
             map_focus=map_focus,
             show_ids=show_ids,
@@ -1203,6 +1230,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             include_overlap=selection_mode,
             allow_overlap=args.allow_overlap,
             skip_overlap=args.skip_overlap,
+            push_spec=push_spec,
             show_map=show_map,
             map_focus=map_focus,
             show_ids=show_ids,
@@ -1222,6 +1250,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             include_overlap=selection_mode,
             allow_overlap=args.allow_overlap,
             skip_overlap=args.skip_overlap,
+            push_spec=push_spec,
             show_map=show_map,
             map_focus=map_focus,
             show_ids=show_ids,
@@ -1241,6 +1270,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             include_overlap=selection_mode,
             allow_overlap=args.allow_overlap,
             skip_overlap=args.skip_overlap,
+            push_spec=push_spec,
             show_map=show_map,
             map_focus=map_focus,
             show_ids=show_ids,
@@ -1263,6 +1293,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             include_overlap=selection_mode,
             allow_overlap=args.allow_overlap,
             skip_overlap=args.skip_overlap,
+            push_spec=push_spec,
             show_map=show_map,
             map_focus=map_focus,
             show_ids=show_ids,
@@ -1283,6 +1314,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             include_overlap=selection_mode,
             allow_overlap=args.allow_overlap,
             skip_overlap=args.skip_overlap,
+            push_spec=push_spec,
             show_map=show_map,
             map_focus=map_focus,
             show_ids=show_ids,
@@ -1305,6 +1337,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             include_overlap=selection_mode,
             allow_overlap=args.allow_overlap,
             skip_overlap=args.skip_overlap,
+            push_spec=push_spec,
             show_map=show_map,
             map_focus=map_focus,
             show_ids=show_ids,
@@ -1330,6 +1363,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             include_overlap=selection_mode,
             allow_overlap=args.allow_overlap,
             skip_overlap=args.skip_overlap,
+            push_spec=push_spec,
             show_map=show_map,
             map_focus=map_focus,
             show_ids=show_ids,
