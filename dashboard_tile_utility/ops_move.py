@@ -141,7 +141,7 @@ def move_cols(
                 )
             except Exception:
                 pass
-        die(f"Destination conflicts detected. Re-run with --overlaps:allow or --overlaps:skip. {details}{more}")
+        die(f"Destination conflicts detected. Re-run with --overlaps:allow, --overlaps:skip, or --overlaps:push BUFFER. {details}{more}")
 
     for t in moving:
         tid = as_int(t, "id")
@@ -244,7 +244,7 @@ def move_rows(
                 )
             except Exception:
                 pass
-        die(f"Destination conflicts detected. Re-run with --overlaps:allow or --overlaps:skip. {details}{more}")
+        die(f"Destination conflicts detected. Re-run with --overlaps:allow, --overlaps:skip, or --overlaps:push BUFFER. {details}{more}")
 
     for t in moving:
         tid = as_int(t, "id")
@@ -364,7 +364,7 @@ def move_range(
                 )
             except Exception:
                 pass
-        die(f"Destination conflicts detected. Re-run with --overlaps:allow or --overlaps:skip. {details}{more}")
+        die(f"Destination conflicts detected. Re-run with --overlaps:allow, --overlaps:skip, or --overlaps:push BUFFER. {details}{more}")
 
     for t in moving:
         tid = as_int(t, "id")

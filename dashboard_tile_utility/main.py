@@ -103,20 +103,14 @@ def _spacing_include_overlap(args) -> bool:
 
 
 def _push_spec(args) -> Optional[Tuple[str, int]]:
-    """Return requested move/copy/merge push mode and buffer, if any."""
-    specs = []
-    for mode, attr in (("rows", "push_rows"), ("cols", "push_cols"), ("all", "push_all")):
-        value = getattr(args, attr, None)
-        if value is not None:
-            specs.append((mode, int(value)))
-    if not specs:
+    """Return requested move/copy/merge overlap-push buffer, if any."""
+    value = getattr(args, "push_overlap", None)
+    if value is None:
         return None
-    if len(specs) > 1:
-        die("Only one of --push:rows, --push:cols, or --push:all may be specified.")
-    mode, buffer = specs[0]
+    buffer = int(value)
     if buffer < 0:
-        die(f"--push:{mode} BUFFER must be >= 0, got {buffer}.")
-    return (mode, buffer)
+        die(f"--overlaps:push BUFFER must be >= 0, got {buffer}.")
+    return ("push", buffer)
 
 
 def _parse_inclusive_range(name: str, pair: Optional[List[int]]) -> Optional[Tuple[int, int]]:
@@ -550,6 +544,29 @@ def main(argv: Optional[List[str]] = None) -> None:
     if (getattr(args, "remove_overlap_partial", False) or getattr(args, "remove_overlap_all", False)) and getattr(args, "spacing_add", None) is not None:
         die("ERROR: --overlaps:remove_partial and --overlaps:remove_all cannot be used with --spacing_add:*. Use --spacing_set:* instead.")
 
+    # --css:cleanup is only meaningful when a primary action can remove tiles.
+    if getattr(args, "cleanup_css", False):
+        cleanup_valid = any([
+            getattr(args, "delete_rows", None),
+            getattr(args, "delete_cols", None),
+            getattr(args, "clear_rows", None),
+            getattr(args, "clear_cols", None),
+            getattr(args, "clear_range", None),
+            getattr(args, "crop_to_rows", None),
+            getattr(args, "crop_to_cols", None),
+            getattr(args, "crop_to_range", None),
+            getattr(args, "prune_ids", None),
+            getattr(args, "prune_devices", None),
+            getattr(args, "prune_except_ids", None),
+            getattr(args, "prune_except_devices", None),
+        ])
+        if not cleanup_valid:
+            die(
+                "ERROR: --css:cleanup is only valid with tile-removal actions: "
+                "--delete:*, --clear:*, --crop:*, --prune:* or --prune_except:*. "
+                "Use --clear_css <spec> as the primary action when you want to remove CSS rules without removing tiles."
+            )
+
     if args.indent < 0:
         die("--indent must be >= 0.")
 
@@ -855,8 +872,6 @@ def main(argv: Optional[List[str]] = None) -> None:
         die("--row_range is only valid with --insert_cols or --delete_cols.")
 
     # Validate conflict policy usage
-    if args.skip_overlap and args.allow_overlap:
-        die("--overlaps:skip and --overlaps:allow cannot be used at the same time.")
     if args.skip_overlap and not (
         args.move_cols or args.move_rows or args.move_range
         or args.copy_cols or args.copy_rows or args.copy_range
@@ -876,7 +891,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         or args.copy_cols or args.copy_rows or args.copy_range
         or args.merge_cols or args.merge_rows or args.merge_range
     ):
-        die("--push:rows, --push:cols, and --push:all are only valid with --move_*, --copy_*, or --merge_* commands.")
+        die("--overlaps:push is only valid with --move_*, --copy_*, or --merge_* commands.")
     # --force is allowed for any action that would otherwise prompt for confirmation.
 
     # Copy-tile-css modes are expressed as action switches (mutually exclusive).
@@ -910,7 +925,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         vlog(True, f"Newlines: {args.newline}")
         vlog(True, f"select_mode={selection_mode} spacing_overlap_union_mode={_spacing_include_overlap(args)} force={bool(args.force)}")
         vlog(True, f"allow_overlap={bool(args.allow_overlap)} skip_overlap={bool(args.skip_overlap)}")
-        vlog(True, f"push={push_spec if push_spec is not None else '(none)'}")
+        vlog(True, f"overlaps_push={push_spec[1] if push_spec is not None else '(none)'}")
         vlog(True, f"Trim: {args.trim if args.trim is not None else '(none)'} (do_left={do_left} do_top={do_top})")
         if args.sort is not None:
             spec = args.sort
@@ -1910,7 +1925,7 @@ def main(argv: Optional[List[str]] = None) -> None:
                 )
             die(
                 f"Overlapping tiles detected in result: id={id1} overlaps id={id2} at r{orect[0]}..{orect[1]},c{orect[2]}..{orect[3]}. "
-                "Re-run with --overlaps:allow or --overlaps:skip."
+                "Re-run with a valid overlap policy such as --overlaps:allow, --overlaps:skip, or --overlaps:push BUFFER."
             )
 
     output_obj = build_output_object(kind, full_container, final_tiles, args.output_format)

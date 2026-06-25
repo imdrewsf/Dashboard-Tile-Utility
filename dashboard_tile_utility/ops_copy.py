@@ -115,7 +115,7 @@ def _conflict_scan_and_append(
                 )
             except Exception:
                 pass
-        die(f"Destination conflicts detected. Re-run with --overlaps:allow or --overlaps:skip. {details}{more}")
+        die(f"Destination conflicts detected. Re-run with --overlaps:allow, --overlaps:skip, or --overlaps:push BUFFER. {details}{more}")
 
     added = 0
     appended_ids: Set[int] = set()

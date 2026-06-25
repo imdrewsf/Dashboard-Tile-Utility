@@ -51,20 +51,21 @@ def _next_id_state(dest_tiles: List[Dict[str, Any]], *, reserved_ids: Optional[S
     return used, next_id
 
 
-def _ensure_unique_id(tile: Dict[str, Any], used: Set[int], next_id: int, debug: bool, label: str) -> int:
-    src_id = as_int(tile, "id")
-    if src_id not in used:
-        used.add(src_id)
-        while next_id in used:
-            next_id += 1
-        return next_id
+def _assign_new_id(tile: Dict[str, Any], used: Set[int], next_id: int, debug: bool, label: str) -> int:
+    """Assign a fresh destination ID to a merged tile.
 
+    Merge is a copy operation from another layout, so every merged tile should
+    receive a new ID using the same destination-side allocation rule as copy:
+    start after the highest destination tile ID or destination customCSS tile ID,
+    then allocate sequentially. Source tile IDs are never preserved.
+    """
+    src_id = as_int(tile, "id")
     while next_id in used:
         next_id += 1
     new_id = next_id
     set_int_like(tile, "id", new_id)
     used.add(new_id)
-    dlog(debug, f"[{label}] id conflict/reserved: source id={src_id} -> reassigned id={new_id}")
+    dlog(debug, f"[{label}] copied source id={src_id} -> new id={new_id}")
     return next_id + 1
 
 
@@ -136,7 +137,7 @@ def _conflict_scan_and_append(
                 )
             except Exception:
                 pass
-        die(f"Destination conflicts detected. Re-run with --overlaps:allow or --overlaps:skip. {details}{more}")
+        die(f"Destination conflicts detected. Re-run with --overlaps:allow, --overlaps:skip, or --overlaps:push BUFFER. {details}{more}")
 
     appended_ids: Set[int] = set()
     added = 0
@@ -191,7 +192,7 @@ def merge_cols(
     for t in selected:
         src_id = as_int(t, "id")
         ct = copy.deepcopy(t)
-        next_id = _ensure_unique_id(ct, used_ids, next_id, debug, "merge")
+        next_id = _assign_new_id(ct, used_ids, next_id, debug, "merge")
         tid = as_int(ct, "id")
         id_map[src_id] = tid
 
@@ -259,7 +260,7 @@ def merge_rows(
     for t in selected:
         src_id = as_int(t, "id")
         ct = copy.deepcopy(t)
-        next_id = _ensure_unique_id(ct, used_ids, next_id, debug, "merge")
+        next_id = _assign_new_id(ct, used_ids, next_id, debug, "merge")
         tid = as_int(ct, "id")
         id_map[src_id] = tid
 
@@ -340,7 +341,7 @@ def merge_range(
     for t in selected:
         src_id = as_int(t, "id")
         ct = copy.deepcopy(t)
-        next_id = _ensure_unique_id(ct, used_ids, next_id, debug, "merge")
+        next_id = _assign_new_id(ct, used_ids, next_id, debug, "merge")
         tid = as_int(ct, "id")
         id_map[src_id] = tid
 
