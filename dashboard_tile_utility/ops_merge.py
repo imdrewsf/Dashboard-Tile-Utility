@@ -23,6 +23,7 @@ from .selectors import select_tiles_by_col_range, select_tiles_by_rect_range, se
 from .tiles import as_int, rect, set_int_like, verify_tiles_minimum
 from .util import die, dlog, vlog
 from .map_view import render_tile_map, conflict_rects_from_details
+from .ops_push import PushSpec, apply_push_for_destination
 
 
 def _load_merge_tiles_from_file(path: str) -> List[Dict[str, Any]]:
@@ -50,20 +51,21 @@ def _next_id_state(dest_tiles: List[Dict[str, Any]], *, reserved_ids: Optional[S
     return used, next_id
 
 
-def _ensure_unique_id(tile: Dict[str, Any], used: Set[int], next_id: int, debug: bool, label: str) -> int:
-    src_id = as_int(tile, "id")
-    if src_id not in used:
-        used.add(src_id)
-        while next_id in used:
-            next_id += 1
-        return next_id
+def _assign_new_id(tile: Dict[str, Any], used: Set[int], next_id: int, debug: bool, label: str) -> int:
+    """Assign a fresh destination ID to a merged tile.
 
+    Merge is a copy operation from another layout, so every merged tile should
+    receive a new ID using the same destination-side allocation rule as copy:
+    start after the highest destination tile ID or destination customCSS tile ID,
+    then allocate sequentially. Source tile IDs are never preserved.
+    """
+    src_id = as_int(tile, "id")
     while next_id in used:
         next_id += 1
     new_id = next_id
     set_int_like(tile, "id", new_id)
     used.add(new_id)
-    dlog(debug, f"[{label}] id conflict/reserved: source id={src_id} -> reassigned id={new_id}")
+    dlog(debug, f"[{label}] copied source id={src_id} -> new id={new_id}")
     return next_id + 1
 
 
@@ -73,7 +75,8 @@ def _conflict_scan_and_append(
     copies: List[Dict[str, Any]],
     allow_overlap: bool,
     skip_overlap: bool,
-    show_map: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
     map_focus: str = 'full',
     show_ids: bool = False,
     show_axes: str = 'none',
@@ -89,6 +92,21 @@ def _conflict_scan_and_append(
     conflicts_by_mid, total_pairs = scan_move_conflicts(copies, stationary, moved_rect)
     if conflicts_by_mid:
         vlog(verbose, f"[{label}] conflicts detected: {len(conflicts_by_mid)} merged tile(s), {total_pairs} overlap pair(s)")
+        if push_spec is not None:
+            apply_push_for_destination(
+                stationary,
+                [rect(t) for t in copies],
+                conflicts_by_mid,
+                push_spec,
+                verbose=verbose,
+                debug=debug,
+                label=label,
+            )
+            conflicts_by_mid, total_pairs = scan_move_conflicts(copies, stationary, moved_rect)
+            if conflicts_by_mid:
+                vlog(verbose, f"[{label}] conflicts remaining after push: {len(conflicts_by_mid)} merged tile(s), {total_pairs} overlap pair(s)")
+            else:
+                vlog(verbose, f"[{label}] push resolved destination conflicts")
 
     if conflicts_by_mid and not allow_overlap and not skip_overlap:
         sample = list(conflicts_by_mid.items())[:10]
@@ -119,7 +137,7 @@ def _conflict_scan_and_append(
                 )
             except Exception:
                 pass
-        die(f"Destination conflicts detected. Re-run with --overlaps:allow or --overlaps:skip. {details}{more}")
+        die(f"Destination conflicts detected. Re-run with --overlaps:allow, --overlaps:skip, or --overlaps:push [BUFFER]. {details}{more}")
 
     appended_ids: Set[int] = set()
     added = 0
@@ -146,7 +164,8 @@ def merge_cols(
     include_overlap: bool,
     allow_overlap: bool,
     skip_overlap: bool,
-    show_map: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
     map_focus: str = 'full',
     show_ids: bool = False,
     show_axes: str = 'none',
@@ -173,7 +192,7 @@ def merge_cols(
     for t in selected:
         src_id = as_int(t, "id")
         ct = copy.deepcopy(t)
-        next_id = _ensure_unique_id(ct, used_ids, next_id, debug, "merge")
+        next_id = _assign_new_id(ct, used_ids, next_id, debug, "merge")
         tid = as_int(ct, "id")
         id_map[src_id] = tid
 
@@ -190,6 +209,7 @@ def merge_cols(
         copies=moving,
         allow_overlap=allow_overlap,
         skip_overlap=skip_overlap,
+        push_spec=push_spec,
         verbose=verbose,
         debug=debug,
         label="merge_cols",
@@ -212,7 +232,8 @@ def merge_rows(
     include_overlap: bool,
     allow_overlap: bool,
     skip_overlap: bool,
-    show_map: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
     map_focus: str = 'full',
     show_ids: bool = False,
     show_axes: str = 'none',
@@ -239,7 +260,7 @@ def merge_rows(
     for t in selected:
         src_id = as_int(t, "id")
         ct = copy.deepcopy(t)
-        next_id = _ensure_unique_id(ct, used_ids, next_id, debug, "merge")
+        next_id = _assign_new_id(ct, used_ids, next_id, debug, "merge")
         tid = as_int(ct, "id")
         id_map[src_id] = tid
 
@@ -256,6 +277,7 @@ def merge_rows(
         copies=moving,
         allow_overlap=allow_overlap,
         skip_overlap=skip_overlap,
+        push_spec=push_spec,
         verbose=verbose,
         debug=debug,
         label="merge_rows",
@@ -281,7 +303,8 @@ def merge_range(
     include_overlap: bool,
     allow_overlap: bool,
     skip_overlap: bool,
-    show_map: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
     map_focus: str = 'full',
     show_ids: bool = False,
     show_axes: str = 'none',
@@ -318,7 +341,7 @@ def merge_range(
     for t in selected:
         src_id = as_int(t, "id")
         ct = copy.deepcopy(t)
-        next_id = _ensure_unique_id(ct, used_ids, next_id, debug, "merge")
+        next_id = _assign_new_id(ct, used_ids, next_id, debug, "merge")
         tid = as_int(ct, "id")
         id_map[src_id] = tid
 
@@ -338,6 +361,7 @@ def merge_range(
         copies=moving,
         allow_overlap=allow_overlap,
         skip_overlap=skip_overlap,
+        push_spec=push_spec,
         verbose=verbose,
         debug=debug,
         label="merge_range",

@@ -38,6 +38,7 @@ def normalize_argv(argv: List[str]) -> List[str]:
       --list_tiles:plain "-hwi"
       --list_tiles plain "-hwi"
       --indent:0
+      --overlaps:push[:BUFFER]
 
     Converts to argv suitable for argparse.
     """
@@ -64,6 +65,8 @@ def normalize_argv(argv: List[str]) -> List[str]:
             out += ["--indent", a.split(":", 1)[1]]
         elif a.startswith("--trim:"):
             out += ["--trim", a.split(":", 1)[1]]
+        elif a.startswith("--overlaps:push:"):
+            out += ["--overlaps:push", a.split(":", 2)[2]]
         elif a.startswith("--list_tiles:") or a.startswith("--list-tiles:"):
             spec = a.split(":", 1)[1]
             head = spec.split(":", 1)[0].strip().lower()

@@ -70,8 +70,15 @@ Main actions (choose one):
   --copy_css:merge|overwrite|replace|add
   --clear_css
 
-Additional actions:
-  --trim   --sort_json   --scrub_css   --compact_css   --show_map[:mode]   --list_tiles
+Post-actions / supplemental actions:
+  --trim   --sort_json   --scrub_css   --compact_css   --show_map[:mode]
+
+Common CSS options:
+  --css:cleanup     tile-removal actions only; remove CSS for removed tiles
+  --css:ignore      copy/merge only; do not create CSS for new tile IDs
+
+Standalone report actions:
+  --list_tiles[:type]     cannot be combined with main actions
 
 Output channels:
   STDOUT       primary output data only
@@ -117,6 +124,7 @@ Main actions (at most ONE per run):
               --merge:rows START END DEST
               --merge:range SRC_TOP SRC_LEFT SRC_BOTTOM SRC_RIGHT DEST_TOP DEST_LEFT
               --merge_source:file <filename> OR --merge_source:hub <dashboard_url>
+              merged tiles always receive new destination IDs
 
   Delete      --delete:rows START END
               --delete:cols START END
@@ -137,21 +145,23 @@ Main actions (at most ONE per run):
   Spacing     --spacing_add:rows CELLS   | --spacing_add:cols CELLS   | --spacing_add:all CELLS
               --spacing_set:rows GAP     | --spacing_set:cols GAP     | --spacing_set:all GAP
 
-  Copy CSS    --copy_css:merge FROM_TILE TO_TILE
+  CSS         --copy_css:merge FROM_TILE TO_TILE
               --copy_css:overwrite FROM_TILE TO_TILE
               --copy_css:replace FROM_TILE TO_TILE
               --copy_css:add FROM_TILE TO_TILE
               --clear_css <spec>
 
-Additional actions (may be combined with the single main action):
+Post-actions / supplemental actions (may be combined with the single main action):
   --trim[:top|left|top,left]
   --sort_json ["<keys>"]       default: "i"; keys: i=id, r=row, c=col; i is appended if omitted
+  --scrub_css                  may also be used standalone
+  --compact_css                may also be used standalone
+
+Standalone report actions (cannot be combined with main actions):
   --list_tiles[:<type>] ["<keys>"]
                                default: plain "i"; types: plain, tree, overlap, nested, conflicts
                                plain keys: i,r,c,h,w,p,d,t,s; i is appended if omitted
                                quote keys when passing them as a separate argument
-  --scrub_css
-  --compact_css
 
 Modifiers:
   --select:include_partial
@@ -162,10 +172,11 @@ Modifiers:
   --row_range <start> <end>     insert:cols and delete:cols only
   --col_range <start> <end>     insert:rows and delete:rows only
   --overlaps:allow              move/copy/merge, insert rows/cols, and delete rows/cols
-  --overlaps:skip               move/copy/merge only; mutually exclusive with --overlaps:allow
+  --overlaps:skip               move/copy/merge only; mutually exclusive with other overlap policies
+  --overlaps:push [BUFFER]     move/copy/merge only; push existing destination tiles to make space; BUFFER defaults to 0
   --force
-  --css:cleanup
-  --css:ignore
+  --css:cleanup                 delete/clear/crop/prune only; remove CSS for removed tiles
+  --css:ignore                  copy/merge only; do not create CSS for new tile IDs
 
 Hubitat direct mode:
   --undo_last
@@ -176,7 +187,10 @@ Maps / reports:
   --show_map[:full|:conflicts|:no_scale]   standalone map view if no action is given
   --show_ids
   --show_axis:row|col|all
+
+Standalone tile reports:
   --list_tiles[:plain|:tree|:overlap|:nested|:conflicts] ["<keys>"]
+                                            cannot be combined with main actions
 
 Help:
   -h
@@ -220,13 +234,13 @@ Main actions (mutually exclusive; choose at most ONE per run)
     --move:cols START_COL END_COL DEST_START_COL
     --move:rows START_ROW END_ROW DEST_START_ROW
     --move:range SRC_TOP_ROW SRC_LEFT_COL SRC_BOTTOM_ROW SRC_RIGHT_COL DEST_TOP_ROW DEST_LEFT_COL
-    Modifiers: --select:include_partial, --select:exclude_partial, --overlaps:allow, --overlaps:skip
+    Modifiers: --select:include_partial, --select:exclude_partial, --overlaps:allow, --overlaps:skip, --overlaps:push [BUFFER]
 
   Copy / duplicate existing tiles:
     --copy:cols START_COL END_COL DEST_START_COL
     --copy:rows START_ROW END_ROW DEST_START_ROW
     --copy:range SRC_TOP_ROW SRC_LEFT_COL SRC_BOTTOM_ROW SRC_RIGHT_COL DEST_TOP_ROW DEST_LEFT_COL
-    Modifiers: --select:include_partial, --select:exclude_partial, --overlaps:allow, --overlaps:skip, --css:ignore
+    Modifiers: --select:include_partial, --select:exclude_partial, --overlaps:allow, --overlaps:skip, --overlaps:push [BUFFER], --css:ignore
 
   Merge / import tiles from another layout:
     --merge_source:file <filename>
@@ -234,7 +248,8 @@ Main actions (mutually exclusive; choose at most ONE per run)
     --merge:cols START_COL END_COL DEST_START_COL
     --merge:rows START_ROW END_ROW DEST_START_ROW
     --merge:range SRC_TOP_ROW SRC_LEFT_COL SRC_BOTTOM_ROW SRC_RIGHT_COL DEST_TOP_ROW DEST_LEFT_COL
-    Modifiers: --select:include_partial, --select:exclude_partial, --overlaps:allow, --overlaps:skip, --css:ignore
+    Modifiers: --select:include_partial, --select:exclude_partial, --overlaps:allow, --overlaps:skip, --overlaps:push [BUFFER], --css:ignore
+    Notes: merge is a copy operation; merged tiles always receive new destination IDs using the same allocation rule as --copy:*.
 
   Delete rows / columns (removes matched tiles and shifts following tiles up / left):
     --delete:rows START_ROW END_ROW
@@ -281,14 +296,16 @@ Main actions (mutually exclusive; choose at most ONE per run)
       --overlaps:remove_all      treat every tile as its own unit (distribute all overlaps into the layout)
       Note: --overlaps:remove_partial and --overlaps:remove_all are only valid with --spacing_set:*.
 
-  Copy CSS actions (modify customCSS; can run alone):
+  CSS primary actions (modify customCSS; can run alone and can be combined with supplemental actions):
     --copy_css:merge FROM_TILE TO_TILE
     --copy_css:overwrite FROM_TILE TO_TILE
     --copy_css:replace FROM_TILE TO_TILE
     --copy_css:add FROM_TILE TO_TILE
     --clear_css <spec>
+      Remove tile-specific CSS rules for tile id(s) matched by SPEC without removing tiles.
+      SPEC uses the same comma-list, range, and comparison syntax as --prune:ids.
 
-Additional actions (can run alone or run after the single main action)
+Post-actions / supplemental actions (can run alone or run after the single main action)
 
   Trim (performed after the main action, before sorting):
     --trim                 same as --trim:top,left
@@ -306,7 +323,7 @@ Additional actions (can run alone or run after the single main action)
     If i is omitted, it is appended as the final tie-breaker.
     Quote the spec when passing it as a separate argument.
 
-  Standalone CSS actions (performed last):
+  CSS post-actions (may run standalone or after the main action; performed last):
     --scrub_css
       Remove orphan tile-specific CSS rules after actions.
 
@@ -322,7 +339,7 @@ Maps:
   --show_axis:row|col|all    show real row / col numbers on map edges
   Note: --show_map can be used without an action to display the imported layout.
 
-Tile reports (standalone action):
+Tile reports (standalone-only; cannot be combined with any other action):
   --list_tiles                         same as --list_tiles:plain "i"
   --list_tiles:<type>[:<keys>]
   --list_tiles:<type> "<keys>"
@@ -357,6 +374,8 @@ Modifiers
     --overlaps:allow   move/copy/merge: proceed even if destination conflicts exist
                        delete rows/cols: proceed even if post-delete shift conflicts would occur
     --overlaps:skip    move/copy/merge only: skip only the tiles that would conflict in the destination
+    --overlaps:push [BUFFER]
+                       move/copy/merge only: push only the needed existing destination-side tiles right/down to make room plus BUFFER empty cells on the right and bottom edges; BUFFER is optional and defaults to 0
     default            abort before changing anything if destination conflicts exist
 
   Confirmation suppression:
@@ -365,10 +384,12 @@ Modifiers
 CSS modifiers
 
   --css:ignore
-    When copying / merging tiles, do not create / merge tile-specific CSS rules for new tile ids.
+    Copy / merge only. Do not create / merge tile-specific CSS rules for new tile ids.
 
   --css:cleanup
-    When tiles are removed (delete / clear / crop / prune), attempt to remove tile-specific CSS rules for those tile ids.
+    Tile-removal actions only: --delete:*, --clear:*, --crop:*, --prune:* and --prune_except:*.
+    When tiles are removed by one of those actions, attempt to remove tile-specific CSS rules for the removed tile ids.
+    This is different from --clear_css, which is a primary CSS action that removes CSS rules but does not remove tiles.
     Prompts before removal unless --force is specified.
 
 Diagnostics
@@ -888,6 +909,7 @@ def build_parser() -> argparse.ArgumentParser:
     conflict = overlap_grp.add_mutually_exclusive_group(required=False)
     conflict.add_argument("--overlaps:allow", dest="allow_overlap", action="store_true", help="(see --help:full for details)")
     conflict.add_argument("--overlaps:skip", dest="skip_overlap", action="store_true", help="(see --help:full for details)")
+    conflict.add_argument("--overlaps:push", dest="push_overlap", nargs="?", const=0, default=None, metavar="BUFFER", type=int, help="(see --help:full for details)")
     conflict.add_argument("--overlaps:remove_partial", dest="remove_overlap_partial", action="store_true", help="(see --help:full for details)")
     conflict.add_argument("--overlaps:remove_all", dest="remove_overlap_all", action="store_true", help="(see --help:full for details)")
 
@@ -902,7 +924,7 @@ def build_parser() -> argparse.ArgumentParser:
     trim_sort_grp.add_argument("--sort_json", nargs="?", const="i", default=None, dest="sort", metavar="SPEC", help="(see --help:full for details)")
 
     css_grp = p.add_argument_group("CSS")
-    css_grp.add_argument("--css:cleanup", dest="cleanup_css", action="store_true", help="Remove tile-specific CSS rules for deleted/cleared tiles (best-effort)")
+    css_grp.add_argument("--css:cleanup", dest="cleanup_css", action="store_true", help="Remove tile-specific CSS rules for tiles removed by delete/clear/crop/prune actions (best-effort)")
     css_grp.add_argument("--css:ignore", dest="ignore_css", action="store_true", help="Do NOT create/copy tile-specific CSS rules for new ids when copying/merging (default is to create/copy)")
     # NOTE: copy-tile-css modes are expressed as action switches in the Operations group:
     #   --copy_tile_css:merge / :overwrite / :replace / :add
