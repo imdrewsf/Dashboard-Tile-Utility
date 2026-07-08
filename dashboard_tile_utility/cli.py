@@ -74,8 +74,10 @@ Post-actions / supplemental actions:
   --trim   --sort_json   --scrub_css   --compact_css   --show_map[:mode]
 
 Common CSS options:
-  --css:cleanup     tile-removal actions only; remove CSS for removed tiles
+  --css:cleanup     tile-removal actions only; remove editable customCSS rules
   --css:ignore      copy/merge only; do not create CSS for new tile IDs
+                   @import tile rules are included when CSS is copied/listed
+                   imported stylesheets are read-only and are never scrubbed/cleared
 
 Standalone report actions:
   --list_tiles[:type]     cannot be combined with main actions
@@ -177,6 +179,7 @@ Modifiers:
   --force
   --css:cleanup                 delete/clear/crop/prune only; remove CSS for removed tiles
   --css:ignore                  copy/merge only; do not create CSS for new tile IDs
+                                @import tile rules are included when CSS is copied
 
 Hubitat direct mode:
   --undo_last
@@ -302,8 +305,9 @@ Main actions (mutually exclusive; choose at most ONE per run)
     --copy_css:replace FROM_TILE TO_TILE
     --copy_css:add FROM_TILE TO_TILE
     --clear_css <spec>
-      Remove tile-specific CSS rules for tile id(s) matched by SPEC without removing tiles.
+      Remove editable customCSS rules for tile id(s) matched by SPEC without removing tiles.
       SPEC uses the same comma-list, range, and comparison syntax as --prune:ids.
+      Tile-scoped rules in @import stylesheets are reported but not removed.
 
 Post-actions / supplemental actions (can run alone or run after the single main action)
 
@@ -325,7 +329,8 @@ Post-actions / supplemental actions (can run alone or run after the single main 
 
   CSS post-actions (may run standalone or after the main action; performed last):
     --scrub_css
-      Remove orphan tile-specific CSS rules after actions.
+      Remove orphan tile-specific rules from editable customCSS after actions.
+      Orphan rules in @import stylesheets are reported but not removed.
 
     --compact_css
       Rewrites customCSS as one selector rule per line and sorts the result.
@@ -346,6 +351,7 @@ Tile reports (standalone-only; cannot be combined with any other action):
   Types: plain, tree, overlap, nested, conflicts
   Default sort spec: i
   Plain-only extra keys: h=height, w=width, p=placement, d=device, t=template, s=CSS rules
+  CSS rule counts include tile-scoped rules from customCSS and customCSS @import stylesheets.
   If i is omitted, it is appended as the final tie-breaker.
   Quote the sort spec when passing it as a separate argument.
 
@@ -385,10 +391,13 @@ CSS modifiers
 
   --css:ignore
     Copy / merge only. Do not create / merge tile-specific CSS rules for new tile ids.
+    By default, copied tile CSS includes tile-scoped rules from customCSS and customCSS @import stylesheets.
+    Imported rules are copied into editable customCSS for the new tile ids, but the imported source remains read-only.
 
   --css:cleanup
     Tile-removal actions only: --delete:*, --clear:*, --crop:*, --prune:* and --prune_except:*.
-    When tiles are removed by one of those actions, attempt to remove tile-specific CSS rules for the removed tile ids.
+    When tiles are removed by one of those actions, attempt to remove editable customCSS rules for the removed tile ids.
+    Tile-scoped rules in @import stylesheets are reported but not removed.
     This is different from --clear_css, which is a primary CSS action that removes CSS rules but does not remove tiles.
     Prompts before removal unless --force is specified.
 

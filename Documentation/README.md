@@ -82,6 +82,7 @@ A command-line tool to import, modify, and output [Hubitat](https://hubitat.com/
 
 - [**CSS SUPPORT**](#custom-css-handling--capabilities--limits)
   - Preserve, duplicate or remove CSS rules from `customCSS` when tiles are added (copied) or removed by layout actions.
+  - Include tile-scoped CSS rules loaded through `@import` statements in `customCSS` when duplicating tiles.
   - Copy custom CSS rules between tiles with conflict handling if rules already exist for the destination tile.
   - Reformat and sort custom rules in `customCSS` for easier editing.
   - CSS comment block awareness, including "commented out" rules.
@@ -387,7 +388,7 @@ Moves tiles to a new location.
 
 ### Copy
 
-Same as Move, but the originals remain. Copies are created with new IDs. Existing tile-specific CSS rules in `customCSS` can be optionally copied with the new IDs.
+Same as Move, but the originals remain. Copies are created with new IDs. Existing tile-specific CSS rules in `customCSS`, including tile-scoped rules loaded through `@import`, can be optionally copied with the new IDs.
 
 **Action:** `--copy:mode`
 
@@ -420,7 +421,7 @@ Same as Move, but the originals remain. Copies are created with new IDs. Existin
   ```
 
   This prevents any orphaned CSS rules from being applied to new tiles.
-- By default, tile-scoped CSS rules and comments that reference the tiles being copied will be duplicated and mapped to the new tile-ids.
+- By default, tile-scoped CSS rules and comments that reference the tiles being copied will be duplicated and mapped to the new tile-ids. Tile-scoped rules from `@import` stylesheets are duplicated into customCSS for the new tile-ids.  
 - Conflict detection is evaluated once, before copying, against existing tiles at the destination only.
 - Tiles that are being copied can be overlapped and will not be considered in conflict.
 - Actions will be aborted if conflicts are found unless `--overlaps:allow` or `--overlaps:skip` is present.
@@ -507,7 +508,7 @@ Deletes tiles located in the target rows or columns, then shifts remaining tiles
 **Notes:**
 
 - The default behavior is to leave tile CSS rules for tiles removed or cleared by the current operation in place, unless `--css:cleanup` is present.
-- Use `--scrub_css` to remove all orphaned CSS rules, including rules for tiles removed or cleared by the current operation.
+- Use `--scrub_css` to remove orphaned CSS rules from editable `customCSS`, including rules for tiles removed or cleared by the current operation. Tile-scoped rules in `@import` stylesheets are reported but not removed.
 - Use `--select:include_partial` to avoid conflicts that may occur when tiles are shifted after rows or columns are removed.
 
 **Example:**
@@ -559,7 +560,7 @@ Removes tiles in the target rows, columns or range but does not change the dashb
 **Notes:**
 
 - The default behavior is to leave tile CSS rules for tiles removed or cleared by the current operation in place, unless `--css:cleanup` is present.
-- Use `--scrub_css` to remove all orphaned CSS rules, including rules for tiles removed or cleared by the current operation.
+- Use `--scrub_css` to remove orphaned CSS rules from editable `customCSS`, including rules for tiles removed or cleared by the current operation. Tile-scoped rules in `@import` stylesheets are reported but not removed.
 
 **Examples:** *(Selected tiles are removed leaving empty spaces.)*
 
@@ -611,7 +612,7 @@ Clears all tiles located outside of the target rows, columns or range. The posit
 **Notes:**
 
 - The default behavior is to leave tile CSS rules for tiles removed or cleared by the current operation in place, unless `--css:cleanup` is present.
-- Use `--scrub_css` to remove all orphaned CSS rules, including rules for tiles removed or cleared by the current operation.
+- Use `--scrub_css` to remove orphaned CSS rules from editable `customCSS`, including rules for tiles removed or cleared by the current operation. Tile-scoped rules in `@import` stylesheets are reported but not removed.
 - At least one tile must remain after cropping.
 - Crop only removes tiles but does not change the position of the remaining tiles. Use `--trim`, `--trim:top` or `--trim:left` to remove blank rows and columns above or left of the remaining tiles.
 
@@ -664,7 +665,7 @@ Clears tiles based on a list of either tile-id numbers or device-id numbers. `--
 **Notes:**
 
 - If `--css:cleanup` is not present, tile-scoped custom CSS rules referencing removed or cleared tiles will be left in place.
-- Use `--scrub_css` to remove all orphaned CSS rules, including rules for tiles removed or cleared by the current operation.
+- Use `--scrub_css` to remove orphaned CSS rules from editable `customCSS`, including rules for tiles removed or cleared by the current operation. Tile-scoped rules in `@import` stylesheets are reported but not removed.
 - At least one tile must remain after pruning.
 - Use `--trim`, `--trim:top` or `--trim:left` to remove blank rows on the top or columns on the left of the remaining tiles.
 
@@ -794,7 +795,7 @@ Copies CSS rules from one tile to another.
 **Notes:**
 
 - All modes generate a confirmation prompt if `--force` is not present.
-- Rule conflicts are rules having the same scope and declarations.
+- Rule conflicts are rules having the same scope and declarations. Tile-scoped rules from `@import` stylesheets are included when copying CSS between tiles.
 
 **Examples:**
 
@@ -837,8 +838,9 @@ Removes CSS rules in `customCSS` with selectors referencing a tile-id.
 
 **Notes:**
 
-- Only CSS rules for existing tiles can be cleared.
-- Orphaned rules can only be removed with the `--scrub_css` action.
+- Only editable `customCSS` rules for existing tiles can be cleared.
+- Tile-scoped rules in `@import` stylesheets are reported but not removed.
+- Orphaned editable `customCSS` rules can only be removed with the `--scrub_css` action.
 
 <div align="right"><a href="#table-of-contents">↑ Back to top</a></div>
 
@@ -846,7 +848,7 @@ Removes CSS rules in `customCSS` with selectors referencing a tile-id.
 
 ### Scrub CSS
 
-Removes all tile-scoped CSS rules from `customCSS` with selectors that reference tiles that are no longer in the current dashboard layout.
+Removes all tile-scoped CSS rules from editable `customCSS` with selectors that reference tiles that are no longer in the current dashboard layout. Tile-scoped rules in `@import` stylesheets are read-only and are reported but not removed.
 
 **Action:** `--scrub_css`
 
@@ -1002,7 +1004,7 @@ Generate lists of dashboard tiles and basic attributes.
 --list_tiles:conflicts ["sort"]
 ```
 
-- **Plain** — Lists all tiles in sort order with attributes in columns.
+- **Plain** — Lists all tiles in sort order with attributes in columns. The CSS rule count includes tile-scoped rules from editable `customCSS` and `@import` stylesheets.
 - **Tree** — Lists all tiles in a hierarchical tree to reflect standalone, overlapping and nested tiles. This is best used with complex layouts with intentionally layered tiles.
 - **Overlap** — Lists tiles which partially overlap other tiles.
 - **Nested** — Lists tiles which are nested (the entire tile overlaps another) inside another tile.
@@ -1100,9 +1102,9 @@ Generate lists of dashboard tiles and basic attributes.
 ### CSS Overview
 
 - When tiles are copied/merged (new tile-IDs are created) or removed (delete/clear/crop/prune), the tool can optionally update `customCSS` by:
-  - duplicating tile-scoped rules for the new tile-IDs
-  - removing tile-scoped rules for removed tile-IDs (`--css:cleanup`)
-  - scrubbing orphaned tile-scoped rules (`--scrub_css`)
+  - duplicating tile-scoped rules for the new tile-IDs, including tile-scoped rules loaded through `@import`
+  - removing editable `customCSS` tile-scoped rules for removed tile-IDs (`--css:cleanup`)
+  - scrubbing orphaned editable `customCSS` tile-scoped rules (`--scrub_css`)
 - CSS parsing is limited to typical Hubitat dashboard CSS, not full CSS grammar. Specifically, the parser can only "see" and process "tile-scoped" rules and has limited support for rules inside of comment blocks.
 - Inconsistent formatting, line breaks and whitespace may interfere with CSS parsing.
 
@@ -1113,6 +1115,8 @@ Generate lists of dashboard tiles and basic attributes.
 - A rule is treated as tile-scoped when its **selector** (the part before `{...}`) contains a tile-identifier such as `#tile-123` or `.tile-123`.
 - Declarations do not define ownership. Tile-like text inside the declaration block (`{ property: value; }`) is not enough to associate a rule with a tile unless the selector also scopes the rule to that tile.
 - Rules inside `@media { ... }` blocks can be duplicated/removed, but the tool does not attempt to fully normalize complex nested at-rules.
+- `@import` rules are expanded for tile-rule duplication and `--list_tiles` CSS counts. The original `@import` statement remains in `customCSS`; copied imported tile-scoped rules are appended as editable customCSS for the new tile IDs.
+- Imported stylesheets are read-only. `--clear_css`, `--scrub_css`, and `--css:cleanup` only modify rules actually stored in editable `customCSS` and warn when matching external rules could not be changed.
 - Use `--css:ignore` if your `customCSS` contains advanced selector patterns or complicated blocks you do not want rewritten.
 - Avoid using `--copy_css`, `--css:cleanup` and `--scrub_css` on dashboards with CSS that intentionally cross-references multiple tiles in a single selector item.
 

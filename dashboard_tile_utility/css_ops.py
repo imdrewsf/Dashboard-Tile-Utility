@@ -15,11 +15,247 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
+import os
 import re
+import urllib.parse
+import urllib.request
 
 from .util import wlog
+
+
+_IMPORT_STMT_RE = re.compile(
+    r"^\s*@import\s+(?:url\(\s*(?P<urlq>[\"\']?)(?P<url>[^)\"\']+)(?P=urlq)\s*\)|(?P<strq>[\"\'])(?P<str>.*?)(?P=strq))",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _parse_css_import_target(stmt: str) -> Optional[str]:
+    """Return the URL/path target from a top-level CSS @import statement.
+
+    Accepts the Hubitat/customCSS forms normally seen in dashboards:
+      @import url("...");
+      @import url(...);
+      @import "...";
+      @import '...';
+
+    Media conditions following the import target are ignored; the imported CSS
+    is still treated as part of the effective stylesheet for tile-rule copying.
+    """
+    m = _IMPORT_STMT_RE.match((stmt or "").strip())
+    if not m:
+        return None
+    target = m.group("url") if m.group("url") is not None else m.group("str")
+    if target is None:
+        return None
+    target = target.strip()
+    return target or None
+
+
+def _normalize_css_import_bases(bases: Optional[Iterable[str]]) -> List[str]:
+    out: List[str] = []
+    for b in bases or []:
+        if not b:
+            continue
+        bs = str(b).strip()
+        if not bs:
+            continue
+        out.append(bs)
+    return out
+
+
+def _resolve_css_import_target(target: str, bases: Sequence[str]) -> str:
+    parsed = urllib.parse.urlparse(target)
+    if parsed.scheme in ("http", "https", "file", "data"):
+        return target
+
+    # Absolute local path.
+    if os.path.isabs(target):
+        return target
+
+    # Absolute web path such as /local/foo.css, using the first URL base.
+    if target.startswith("/"):
+        for base in bases:
+            bp = urllib.parse.urlparse(base)
+            if bp.scheme in ("http", "https") and bp.netloc:
+                return urllib.parse.urljoin(base, target)
+        return target
+
+    # Relative path/URL. URL bases use urljoin; file bases use their directory.
+    for base in bases:
+        bp = urllib.parse.urlparse(base)
+        if bp.scheme in ("http", "https") and bp.netloc:
+            return urllib.parse.urljoin(base, target)
+        if bp.scheme == "file":
+            base_path = urllib.request.url2pathname(bp.path)
+            root = base_path if os.path.isdir(base_path) else os.path.dirname(base_path)
+            return os.path.abspath(os.path.join(root, target))
+        root = base if os.path.isdir(base) else os.path.dirname(base)
+        if root:
+            return os.path.abspath(os.path.join(root, target))
+
+    return os.path.abspath(target)
+
+
+def _read_css_import_resource(resolved: str) -> Tuple[str, Optional[str]]:
+    """Read a CSS import target and return (css_text, next_base)."""
+    parsed = urllib.parse.urlparse(resolved)
+    if parsed.scheme in ("http", "https"):
+        req = urllib.request.Request(resolved, headers={"User-Agent": "dashboard_tile_utility-css-import"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            raw = resp.read()
+            charset = "utf-8"
+            try:
+                content_type = resp.headers.get_content_charset()
+                if content_type:
+                    charset = content_type
+            except Exception:
+                pass
+            return (raw.decode(charset, errors="replace"), resolved)
+    if parsed.scheme == "file":
+        path = urllib.request.url2pathname(parsed.path)
+    elif parsed.scheme == "data":
+        raise ValueError("data: CSS imports are not supported")
+    else:
+        path = resolved
+    with open(path, "r", encoding="utf-8") as f:
+        return (f.read(), path)
+
+
+
+def _expand_css_imports_internal(
+    css: str,
+    *,
+    import_bases: Optional[Iterable[str]] = None,
+    warn: Optional[Callable[[str], None]] = None,
+    include_root_rules: bool = True,
+) -> str:
+    """Expand @import rules and optionally include the root stylesheet rules.
+
+    include_root_rules=True returns the effective stylesheet: local customCSS
+    with imported stylesheets expanded in place. include_root_rules=False returns
+    only the imported stylesheet content, used for read-only external CSS checks.
+    """
+    if not css:
+        return ""
+
+    bases0 = _normalize_css_import_bases(import_bases)
+    visited: Set[str] = set()
+
+    def emit_warning(msg: str) -> None:
+        if warn:
+            try:
+                warn(msg)
+            except Exception:
+                pass
+
+    def expand(css_text: str, bases: Sequence[str], depth: int = 0, include_local_rules: bool = True) -> str:
+        if depth > 12:
+            emit_warning("CSS @import nesting is too deep; remaining imports were ignored.")
+            return ""
+        parts: List[str] = []
+        for node in _parse_css_nodes(css_text or ""):
+            if isinstance(node, CssStmt):
+                target = _parse_css_import_target(node.text)
+                if not target:
+                    if include_local_rules:
+                        parts.append(_render_css_nodes([node]).rstrip())
+                    continue
+                resolved = _resolve_css_import_target(target, bases)
+                visit_key = resolved
+                if visit_key in visited:
+                    continue
+                visited.add(visit_key)
+                try:
+                    imported_css, next_base = _read_css_import_resource(resolved)
+                except Exception as e:
+                    emit_warning(f"Unable to read CSS @import {target!r}; imported tile rules were not available ({e}).")
+                    continue
+                next_bases = [next_base] + list(bases) if next_base else list(bases)
+                # Once an imported stylesheet is read, all of its non-import rules
+                # are external effective CSS and should be included.
+                expanded = expand(imported_css, next_bases, depth + 1, True).strip()
+                if expanded:
+                    parts.append(expanded)
+                continue
+
+            pre = (node.prelude or "").strip()
+            if pre.startswith("@"):
+                inner = expand(node.body, bases, depth, include_local_rules)
+                if inner.strip():
+                    parts.append(_render_css_nodes([CssBlock(prelude=node.prelude, body=inner.rstrip())]).rstrip())
+                elif include_local_rules:
+                    parts.append(_render_css_nodes([node]).rstrip())
+                continue
+            if include_local_rules:
+                parts.append(_render_css_nodes([node]).rstrip())
+        return "\n".join([p for p in parts if p.strip()])
+
+    return expand(css, bases0, 0, include_root_rules).strip()
+
+
+def expand_css_imports_for_duplication(
+    css: str,
+    *,
+    import_bases: Optional[Iterable[str]] = None,
+    warn: Optional[Callable[[str], None]] = None,
+) -> str:
+    """Return customCSS with @import statements expanded for CSS duplication.
+
+    The caller should still save the original customCSS. This expanded text is
+    only for operations that duplicate tile-scoped rules, so rules from imported
+    stylesheets are copied into editable customCSS for the new tile IDs.
+
+    Imports are expanded in place to preserve cascade order. Nested imports in
+    imported stylesheets are also resolved. Failed imports are left as no-op for
+    duplication and reported through warn(), if supplied.
+    """
+    return _expand_css_imports_internal(css, import_bases=import_bases, warn=warn, include_root_rules=True)
+
+
+def collect_imported_css_from_custom_css(
+    css: str,
+    *,
+    import_bases: Optional[Iterable[str]] = None,
+    warn: Optional[Callable[[str], None]] = None,
+) -> str:
+    """Return only CSS loaded through @import statements in customCSS.
+
+    This is used for analysis/reporting. The returned CSS is read-only effective
+    CSS; callers must not write changes back to the imported stylesheet.
+    """
+    return _expand_css_imports_internal(css, import_bases=import_bases, warn=warn, include_root_rules=False)
+
+
+def count_tile_selector_rules_in_css(css: str) -> Dict[int, int]:
+    """Count selector blocks that reference each tile id.
+
+    Counts selector rules only; standalone comments and declaration-body
+    references are ignored. Rules inside @media and other at-rule blocks are
+    counted recursively.
+    """
+    counts: Dict[int, int] = {}
+    if not css:
+        return counts
+
+    def rec(css_text: str) -> None:
+        for node in _parse_css_nodes(css_text or ""):
+            if isinstance(node, CssStmt):
+                continue
+            prelude = (node.prelude or "").strip()
+            if prelude.startswith("@"):
+                rec(node.body)
+                continue
+            pre_no_comments = _strip_block_comments_outside_strings(node.prelude or "")
+            ids: Set[int] = set()
+            for sel in _split_selector_list(pre_no_comments.strip()):
+                ids |= _selector_tile_ids(sel)
+            for tid in ids:
+                counts[tid] = counts.get(tid, 0) + 1
+
+    rec(css)
+    return counts
 
 _TILE_ID_PATTERNS = [
     re.compile(r"#tile-(\d+)\b"),

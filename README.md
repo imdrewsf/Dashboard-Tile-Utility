@@ -8,7 +8,7 @@ Dashboard Tile Utility (`dtu`) edits the `tiles` list inside a Hubitat dashboard
 
 - **Tile actions** — move, copy, merge (from another dashboard), clear, and prune tiles by row, column, range, tile id, or device id.
 - **Layout actions** — insert/delete rows or columns, crop to a region, adjust uniform spacing, and trim empty space.
-- **CSS support** — duplicate, remap, remove, and reformat tile-scoped rules in `customCSS`, with comment-block awareness and orphan cleanup.
+- **CSS support** — duplicate, remap, remove, and reformat tile-scoped rules in `customCSS.'
 - **Conflict prevention** — actions abort (or skip/allow on request) when tiles would overlap.
 - **Visual maps** — preview proposed changes, tile ids, and conflicts in the terminal before committing.
 - **Tile lists** — generate tables of tiles and their attributes.

@@ -65,8 +65,11 @@ from .selectors import (
 from .tiles import verify_tiles_minimum, as_int, tile_row_extent, tile_col_extent, rect as tile_rect
 from .css_ops import (
     cleanup_css_for_tile_ids,
+    collect_imported_css_from_custom_css,
     collect_selector_item_bodies,
+    count_tile_selector_rules_in_css,
     drop_selector_items_by_keys,
+    expand_css_imports_for_duplication,
     filter_css_fragment_duplicates,
     find_standalone_comment_tile_refs,
     generate_css_for_id_map,
@@ -85,6 +88,44 @@ from .css_ops import (
 # before --undo_last overwrites a dashboard layout.
 UNDO_STALE_SECONDS = 5 * 60  # 5 minutes
 
+
+def _css_import_bases_for(kind: str, path: Optional[str]) -> list[str]:
+    """Return base locations used to resolve customCSS @import targets."""
+    bases: list[str] = []
+    if path:
+        bases.append(path)
+        if kind == "file":
+            try:
+                bases.append(os.path.dirname(os.path.abspath(path)))
+            except Exception:
+                pass
+    try:
+        bases.append(os.getcwd())
+    except Exception:
+        pass
+    return bases
+
+
+
+def _imported_css_for_checks(css_text: str, import_bases: list[str], args) -> str:
+    """Read external @import CSS for reporting/warnings only."""
+    return collect_imported_css_from_custom_css(
+        css_text or "",
+        import_bases=import_bases,
+        warn=(None if getattr(args, "quiet", False) else wlog),
+    )
+
+
+def _warn_external_css_readonly(action: str, rule_count: int, tile_ids, args, *, verb: str = "modified") -> None:
+    """Warn that effective external CSS rules could not be changed."""
+    if getattr(args, "quiet", False) or int(rule_count or 0) <= 0:
+        return
+    ids = sorted({int(i) for i in (tile_ids or [])})
+    id_txt = f" IDs: {format_id_sample(ids)}" if ids else ""
+    wlog(
+        f"{action}: {int(rule_count)} external @import tile-scoped CSS rule(s) could not be {verb} "
+        f"because imported stylesheets are read-only.{id_txt}"
+    )
 
 def _selection_mode(args) -> str:
     """Return normalized non-spacing selection mode."""
@@ -816,6 +857,9 @@ def main(argv: Optional[List[str]] = None) -> None:
         merge_source_path = _write_temp_merge_source(mobj)
         merge_css_source_path = merge_source_path
 
+    current_css_import_bases = _css_import_bases_for(import_kind, import_path)
+    merge_css_import_bases = _css_import_bases_for(merge_source_kind, merge_source_arg or merge_source_path)
+
 
     has_movement = bool(
         args.insert_rows
@@ -1096,13 +1140,31 @@ def main(argv: Optional[List[str]] = None) -> None:
     if list_tiles_only:
         report_outputs = outputs if args.output_to else [('terminal', None)]
         _, css_text0 = get_custom_css(obj)
-        tile_report_text = render_list_tiles(tiles_before_map, list_tiles_spec, css_text0 or '')
+        # --list_tiles CSS counts report the effective stylesheet. Imported CSS
+        # is read-only, but its tile-scoped rules still affect the dashboard and
+        # should be included in the count shown to the user.
+        css_for_report = expand_css_imports_for_duplication(
+            css_text0 or "",
+            import_bases=current_css_import_bases,
+            warn=(None if args.quiet else wlog),
+        )
+        tile_report_text = render_list_tiles(tiles_before_map, list_tiles_spec, css_for_report or '')
         write_outputs(report_outputs, args.newline, tile_report_text)
         return
 
     # Treat tile ids referenced in customCSS as reserved for id assignment (avoids collisions with orphaned CSS).
+    # Imported CSS participates here too, so new copied/merged tile IDs do not collide with
+    # tile-scoped rules that are active through customCSS @import.
     css_key_pre, css_text_pre = get_custom_css(obj)
-    reserved_css_ids = tile_ids_in_css(css_text_pre or "") if css_key_pre is not None else set()
+    if css_key_pre is not None:
+        css_for_reserved_ids = expand_css_imports_for_duplication(
+            css_text_pre or "",
+            import_bases=current_css_import_bases,
+            warn=(None if args.quiet else wlog),
+        )
+        reserved_css_ids = tile_ids_in_css(css_for_reserved_ids or "")
+    else:
+        reserved_css_ids = set()
 
     vlog(args.verbose, f"Loaded JSON kind={kind}, tiles={len(tiles)}")
 
@@ -1598,13 +1660,23 @@ def main(argv: Optional[List[str]] = None) -> None:
         css_text = css_text or ""
 
         # Generate CSS fragment by duplicating FROM selectors to TO.
-        # This uses the same selector+body rewriting logic as tile copy/merge.
-        frag = generate_css_for_id_map(css_text, {from_id: to_id}, dest_css=None)
+        # @import rules are expanded only for duplication, so imported tile-scoped
+        # rules are copied into editable customCSS for the destination tile.
+        source_css_for_copy = expand_css_imports_for_duplication(
+            css_text,
+            import_bases=current_css_import_bases,
+            warn=(None if args.quiet else wlog),
+        )
+        imported_css_for_copy = _imported_css_for_checks(css_text, current_css_import_bases, args)
+        external_copy_counts = count_tile_selector_rules_in_css(imported_css_for_copy)
+        external_copy_rule_count = external_copy_counts.get(to_id, 0)
+        frag = generate_css_for_id_map(source_css_for_copy, {from_id: to_id}, dest_css=None)
         if not frag.strip():
             if not args.quiet:
                 wlog(f"--copy_css:{copy_mode}: no tile-specific CSS rules found for tile-{from_id}; no changes.")
         else:
             if copy_mode == 'replace':
+                _warn_external_css_readonly(f"--copy_css:{copy_mode}", external_copy_rule_count, [to_id], args, verb="replaced")
                 css_text2 = cleanup_css_for_tile_ids(css_text, [to_id])
                 css_text2 = css_text2.rstrip() + "\n\n" + frag.strip() + "\n"
                 css_text = css_text2
@@ -1617,6 +1689,8 @@ def main(argv: Optional[List[str]] = None) -> None:
                 set_custom_css(obj, css_key, css_text)
 
             else:
+                if copy_mode == 'overwrite':
+                    _warn_external_css_readonly(f"--copy_css:{copy_mode}", external_copy_rule_count, [to_id], args, verb="overwritten")
                 # merge/overwrite: resolve conflicts by selector item + at-rule stack.
                 incoming = collect_selector_item_bodies(frag)
                 existing = collect_selector_item_bodies(css_text)
@@ -1700,12 +1774,21 @@ def main(argv: Optional[List[str]] = None) -> None:
 
         css_text = css_text or ""
 
-        # Fast exit: if none of the targets have selector rules, there is nothing to clear.
+        imported_css_for_clear = _imported_css_for_checks(css_text, current_css_import_bases, args)
+        external_clear_counts = count_tile_selector_rules_in_css(imported_css_for_clear)
+        external_clear_rule_count = sum(external_clear_counts.get(tid, 0) for tid in target_ids)
+        external_clear_ids = [tid for tid in target_ids if external_clear_counts.get(tid, 0)]
+
+        # Fast exit: if none of the targets have local customCSS selector rules,
+        # there is nothing editable to clear. External @import rules are reported
+        # separately because they still affect the dashboard but are read-only.
         if not any(tile_has_selector_rules(css_text, tid) for tid in target_ids):
             if not args.quiet:
-                ilog(f"--clear_css: no selector rules found for {len(target_ids)} tile id(s); no changes.")
+                ilog(f"--clear_css: no customCSS selector rules found for {len(target_ids)} tile id(s); no changes.")
+            _warn_external_css_readonly("--clear_css", external_clear_rule_count, external_clear_ids, args, verb="cleared")
         else:
             css_text2 = cleanup_css_for_tile_ids(css_text, target_ids)
+            _warn_external_css_readonly("--clear_css", external_clear_rule_count, external_clear_ids, args, verb="cleared")
 
             # Optionally remove or rewrite standalone comments referencing these tile id(s).
             hits = find_standalone_comment_tile_refs(css_text2, set(target_ids))
@@ -1749,7 +1832,13 @@ def main(argv: Optional[List[str]] = None) -> None:
             details=details,
             show_details=(args.verbose or args.debug),
         )
+        imported_css_for_cleanup = _imported_css_for_checks(css_text, current_css_import_bases, args)
+        external_cleanup_counts = count_tile_selector_rules_in_css(imported_css_for_cleanup)
+        external_cleanup_rule_count = sum(external_cleanup_counts.get(tid, 0) for tid in ids_to_clean)
+        external_cleanup_ids = [tid for tid in ids_to_clean if external_cleanup_counts.get(tid, 0)]
+
         css_text = cleanup_css_for_tile_ids(css_text, ids_to_clean)
+        _warn_external_css_readonly("--css:cleanup", external_cleanup_rule_count, external_cleanup_ids, args, verb="removed")
         # Optionally remove or neutralize standalone comments that reference the
         # removed tile ids.
         hits = find_standalone_comment_tile_refs(css_text, set(ids_to_clean))
@@ -1784,7 +1873,13 @@ def main(argv: Optional[List[str]] = None) -> None:
             except Exception:
                 source_css = css_text
 
-        frag = generate_css_for_id_map(source_css or "", created_id_map, dest_css=css_text or "")
+        source_bases = merge_css_import_bases if merge_css_source_path else current_css_import_bases
+        expanded_source_css = expand_css_imports_for_duplication(
+            source_css or "",
+            import_bases=source_bases,
+            warn=(None if args.quiet else wlog),
+        )
+        frag = generate_css_for_id_map(expanded_source_css, created_id_map, dest_css=css_text or "")
         if frag.strip():
             css_text = (css_text or "").rstrip() + "\n\n" + frag.strip() + "\n"
             set_custom_css(obj, css_key, css_text)
@@ -1868,6 +1963,10 @@ def main(argv: Optional[List[str]] = None) -> None:
         css_text2 = css_text2 or ""
         existing_ids = {as_int(t, "id") for t in final_tiles}
         orphans = orphan_tile_ids_in_css(css_text2, existing_ids) if css_text2 else set()
+        imported_css_for_scrub = _imported_css_for_checks(css_text2, current_css_import_bases, args)
+        external_orphans = orphan_tile_ids_in_css(imported_css_for_scrub, existing_ids) if imported_css_for_scrub else set()
+        external_scrub_counts = count_tile_selector_rules_in_css(imported_css_for_scrub)
+        external_scrub_rule_count = sum(external_scrub_counts.get(tid, 0) for tid in external_orphans)
         if orphans and args.scrub_css:
 
             prompt_yes_no_or_die(
@@ -1877,6 +1976,9 @@ def main(argv: Optional[List[str]] = None) -> None:
             )
             css_text2 = cleanup_css_for_tile_ids(css_text2, list(orphans))
             set_custom_css(obj, css_key, css_text2)
+            _warn_external_css_readonly("--scrub_css", external_scrub_rule_count, external_orphans, args, verb="scrubbed")
+        elif args.scrub_css:
+            _warn_external_css_readonly("--scrub_css", external_scrub_rule_count, external_orphans, args, verb="scrubbed")
         elif orphans and not args.quiet:
 
             wlog(
