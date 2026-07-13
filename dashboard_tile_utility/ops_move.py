@@ -55,6 +55,103 @@ def scan_move_conflicts(
 
     return conflicts, total_pairs
 
+
+def move_tile(
+    tiles: List[Dict[str, Any]],
+    *,
+    tile_id: int,
+    dest_row: int,
+    dest_col: int,
+    allow_overlap: bool,
+    skip_overlap: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
+    map_focus: str = 'full',
+    show_ids: bool = False,
+    show_axes: str = 'none',
+    verbose: bool = False,
+    debug: bool = False,
+) -> None:
+    """Move one tile, selected by tile id, to an exact destination row/col."""
+    if tile_id < 0 or dest_row <= 0 or dest_col <= 0:
+        die("--move:tile requires TILE_ID >= 0 and positive DEST_ROW / DEST_COL values.")
+
+    moving_tile = None
+    for t in tiles:
+        if as_int(t, "id") == tile_id:
+            moving_tile = t
+            break
+    if moving_tile is None:
+        die(f"--move:tile: tile id {tile_id} not found in layout.")
+
+    moving = [moving_tile]
+    stationary = [t for t in tiles if t is not moving_tile]
+
+    old_row = as_int(moving_tile, "row")
+    old_col = as_int(moving_tile, "col")
+    vlog(verbose, f"[move_tile] selected tile id={tile_id}; destination=({dest_row},{dest_col})")
+
+    def moved_rect(t: Dict[str, Any]) -> Tuple[int, int, int, int]:
+        r1, r2, c1, c2 = rect(t)
+        return (dest_row, dest_row + (r2 - r1), dest_col, dest_col + (c2 - c1))
+
+    conflicts_by_mid, total_pairs = scan_move_conflicts(moving, stationary, moved_rect)
+
+    if conflicts_by_mid:
+        vlog(verbose, f"[move_tile] conflicts detected: {len(conflicts_by_mid)} moving tile(s), {total_pairs} overlap pair(s)")
+        if push_spec is not None:
+            apply_push_for_destination(
+                stationary,
+                [moved_rect(t) for t in moving],
+                conflicts_by_mid,
+                push_spec,
+                verbose=verbose,
+                debug=debug,
+                label="move_tile",
+            )
+            conflicts_by_mid, total_pairs = scan_move_conflicts(moving, stationary, moved_rect)
+            if conflicts_by_mid:
+                vlog(verbose, f"[move_tile] conflicts remaining after push: {len(conflicts_by_mid)} moving tile(s), {total_pairs} overlap pair(s)")
+            else:
+                vlog(verbose, "[move_tile] push resolved destination conflicts")
+
+    if conflicts_by_mid and not allow_overlap and not skip_overlap:
+        entries = conflicts_by_mid.get(tile_id, [])
+        details = ""
+        if entries:
+            details = f" move id={tile_id} conflicts at r{entries[0][1][0]}..{entries[0][1][1]},c{entries[0][1][2]}..{entries[0][1][3]} with {[sid for sid,_ in entries]}"
+        if show_map:
+            try:
+                focus = conflict_rects_from_details(conflicts_by_mid)
+                moved_rects = [moved_rect(t) for t in moving]
+                full_like = (map_focus == 'full' or map_focus == 'no_scale')
+                bounds_rects = [rect(t) for t in stationary] + moved_rects if full_like else (focus if map_focus == 'conflict' else None)
+                print(
+                    render_tile_map(
+                        stationary,
+                        title='CONFLICT MAP',
+                        focus_rects=focus,
+                        bounds_rects=bounds_rects,
+                        highlight_rects=moved_rects,
+                        no_scale=True,
+                        show_ids=show_ids,
+                        show_axes=show_axes,
+                    ),
+                    end='',
+                    file=_sys.stderr,
+                )
+            except Exception:
+                pass
+        die(f"Destination conflicts detected. Re-run with --overlaps:allow, --overlaps:skip, or --overlaps:push [BUFFER].{details}")
+
+    if conflicts_by_mid.get(tile_id) and skip_overlap and not allow_overlap:
+        dlog(debug, f"[move_tile] id={tile_id}: SKIP (conflicts with {conflicts_by_mid[tile_id]})")
+        return
+
+    set_int_like(moving_tile, "row", dest_row)
+    set_int_like(moving_tile, "col", dest_col)
+    dlog(debug, f"[move_tile] id={tile_id}: (row,col) ({old_row},{old_col}) -> ({dest_row},{dest_col})" + ("" if not conflicts_by_mid.get(tile_id) else " (conflict allowed)"))
+
 def move_cols(
     tiles: List[Dict[str, Any]],
     *,

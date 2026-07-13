@@ -33,7 +33,7 @@ from .io_helpers import (
 )
 from .jsonio import build_output_object, dump_json, extract_tiles_container, load_json_from_text
 from .ops_clear import clear_cols, clear_range, clear_rows
-from .ops_copy import copy_cols, copy_rows, copy_range
+from .ops_copy import copy_cols, copy_rows, copy_range, copy_tile
 from .ops_delete import delete_cols, delete_rows
 from .ops_crop import (
     crop_to_cols,
@@ -47,8 +47,8 @@ from .ops_crop import (
     parse_prune_id_spec,
 )
 from .ops_insert import insert_cols, insert_rows
-from .ops_merge import merge_cols, merge_range, merge_rows
-from .ops_move import move_cols, move_range, move_rows
+from .ops_merge import merge_cols, merge_range, merge_rows, merge_tile
+from .ops_move import move_cols, move_range, move_rows, move_tile
 from .ops_trim import trim_tiles
 from .ops_spacing import adjust_tile_spacing, set_tile_spacing
 from .map_view import render_tile_map
@@ -240,6 +240,10 @@ def _compute_before_map_mark_rects(
         lc, rc = (c1, c2) if c1 <= c2 else (c2, c1)
         add(select_tiles_by_rect_range(tiles, tr, lc, br, rc, include_overlap=selection_mode))
 
+    if getattr(args, "move_tile", None):
+        tile_id, _dr, _dc = args.move_tile
+        add([t for t in tiles if as_int(t, "id") == tile_id])
+
     if getattr(args, "copy_cols", None):
         s, e, _d = args.copy_cols
         if s > e:
@@ -257,6 +261,10 @@ def _compute_before_map_mark_rects(
         tr, br = (r1, r2) if r1 <= r2 else (r2, r1)
         lc, rc = (c1, c2) if c1 <= c2 else (c2, c1)
         add(select_tiles_by_rect_range(tiles, tr, lc, br, rc, include_overlap=selection_mode))
+
+    if getattr(args, "copy_tile", None):
+        tile_id, _dr, _dc = args.copy_tile
+        add([t for t in tiles if as_int(t, "id") == tile_id])
 
     # Delete / Clear: mark tiles selected for removal (not the shifted tiles).
     if getattr(args, "delete_rows", None):
@@ -558,12 +566,18 @@ def main(argv: Optional[List[str]] = None) -> None:
         if getattr(args, "insert_rows", None) is not None or getattr(args, "insert_cols", None) is not None:
             if selection_mode != "include_partial":
                 die("ERROR: --insert:* only supports default selection or --select:include_partial.")
+        elif getattr(args, "move_tile", None) is not None:
+            die("ERROR: --select:* is not valid with --move:tile. A tile id already selects the exact tile.")
         elif getattr(args, "move_cols", None) is not None or getattr(args, "move_rows", None) is not None or getattr(args, "move_range", None) is not None:
             if selection_mode not in {"include_partial", "exclude_partial"}:
                 die("ERROR: --move:* supports --select:include_partial or --select:exclude_partial only.")
+        elif getattr(args, "copy_tile", None) is not None:
+            die("ERROR: --select:* is not valid with --copy:tile. A tile id already selects the exact tile.")
         elif getattr(args, "copy_cols", None) is not None or getattr(args, "copy_rows", None) is not None or getattr(args, "copy_range", None) is not None:
             if selection_mode not in {"include_partial", "exclude_partial"}:
                 die("ERROR: --copy:* supports --select:include_partial or --select:exclude_partial only.")
+        elif getattr(args, "merge_tile", None) is not None:
+            die("ERROR: --select:* is not valid with --merge:tile. A tile id already selects the exact source tile.")
         elif getattr(args, "merge_cols", None) is not None or getattr(args, "merge_rows", None) is not None or getattr(args, "merge_range", None) is not None:
             if selection_mode not in {"include_partial", "exclude_partial"}:
                 die("ERROR: --merge:* supports --select:include_partial or --select:exclude_partial only.")
@@ -867,12 +881,15 @@ def main(argv: Optional[List[str]] = None) -> None:
         or args.move_cols
         or args.move_rows
         or args.move_range
+        or args.move_tile
         or args.copy_cols
         or args.copy_rows
         or args.copy_range
+        or args.copy_tile
         or args.merge_cols
         or args.merge_rows
         or args.merge_range
+        or args.merge_tile
         or args.delete_rows
         or args.delete_cols
         or args.clear_rows
@@ -918,22 +935,31 @@ def main(argv: Optional[List[str]] = None) -> None:
     # Validate conflict policy usage
     if args.skip_overlap and not (
         args.move_cols or args.move_rows or args.move_range
+        or args.move_tile
         or args.copy_cols or args.copy_rows or args.copy_range
+        or args.copy_tile
         or args.merge_cols or args.merge_rows or args.merge_range
+        or args.merge_tile
     ):
         die("--overlaps:skip is only valid with --move_*, --copy_*, or --merge_* commands.")
     if args.allow_overlap and not (
         args.move_cols or args.move_rows or args.move_range
+        or args.move_tile
         or args.copy_cols or args.copy_rows or args.copy_range
+        or args.copy_tile
         or args.merge_cols or args.merge_rows or args.merge_range
+        or args.merge_tile
         or args.delete_rows or args.delete_cols
         or args.insert_rows or args.insert_cols
     ):
         die("--overlaps:allow is only valid with --move_*, --copy_*, --merge_*, --delete_rows, --delete_cols, --insert_rows, or --insert_cols commands.")
     if push_spec is not None and not (
         args.move_cols or args.move_rows or args.move_range
+        or args.move_tile
         or args.copy_cols or args.copy_rows or args.copy_range
+        or args.copy_tile
         or args.merge_cols or args.merge_rows or args.merge_range
+        or args.merge_tile
     ):
         die("--overlaps:push is only valid with --move_*, --copy_*, or --merge_* commands.")
     # --force is allowed for any action that would otherwise prompt for confirmation.
@@ -941,7 +967,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     # Copy-tile-css modes are expressed as action switches (mutually exclusive).
 
     # Validate merge usage
-    if (args.merge_cols or args.merge_rows or args.merge_range):
+    if (args.merge_cols or args.merge_rows or args.merge_range or args.merge_tile):
         if not merge_source_kind or not merge_source_arg:
             die("For merge operations, --merge_source is required (use --merge_source:file <filename> or --merge_source:hub <dashboard_url>).")
         # merge_source cannot be the same as the input
@@ -1020,7 +1046,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     # Tile list validation
     # Some actions (merge, CSS scrub) can run even when the dashboard has no tiles yet.
     has_tiles = bool(tiles_any)
-    merge_like = bool(merge_source_kind) and bool(args.merge_cols or args.merge_rows or args.merge_range)
+    merge_like = bool(merge_source_kind) and bool(args.merge_cols or args.merge_rows or args.merge_range or args.merge_tile)
     scrub_like = bool(args.scrub_css)
     compact_like = bool(args.compact_css)
 
@@ -1029,9 +1055,9 @@ def main(argv: Optional[List[str]] = None) -> None:
     show_map_only = (bool(show_map) or bool(list_tiles_spec)) and not any([
         _ga('sort'), _ga('sort_spec'), _ga('trim'),
         _ga('insert_rows'), _ga('insert_cols'),
-        _ga('move_cols'), _ga('move_rows'), _ga('move_range'),
-        _ga('copy_cols'), _ga('copy_rows'), _ga('copy_range'),
-        _ga('merge_cols'), _ga('merge_rows'), _ga('merge_range'),
+        _ga('move_cols'), _ga('move_rows'), _ga('move_range'), _ga('move_tile'),
+        _ga('copy_cols'), _ga('copy_rows'), _ga('copy_range'), _ga('copy_tile'),
+        _ga('merge_cols'), _ga('merge_rows'), _ga('merge_range'), _ga('merge_tile'),
         _ga('delete_rows'), _ga('delete_cols'),
         _ga('clear_rows'), _ga('clear_cols'), _ga('clear_range'),
         _ga('crop_to_rows'), _ga('crop_to_cols'), _ga('crop_to_range'),
@@ -1087,9 +1113,9 @@ def main(argv: Optional[List[str]] = None) -> None:
             )
             if destructive:
                 title = 'BEFORE MAP (TO BE REMOVED)'
-            elif any(getattr(args, k, None) for k in ('move_cols', 'move_rows', 'move_range')):
+            elif any(getattr(args, k, None) for k in ('move_cols', 'move_rows', 'move_range', 'move_tile')):
                 title = 'BEFORE MAP (TO BE MOVED)'
-            elif any(getattr(args, k, None) for k in ('copy_cols', 'copy_rows', 'copy_range')):
+            elif any(getattr(args, k, None) for k in ('copy_cols', 'copy_rows', 'copy_range', 'copy_tile')):
                 title = 'BEFORE MAP (TO BE COPIED)'
             elif any(getattr(args, k, None) for k in ('insert_rows', 'insert_cols')) or has_trim:
                 title = 'BEFORE MAP (TO BE SHIFTED)'
@@ -1316,6 +1342,23 @@ def main(argv: Optional[List[str]] = None) -> None:
             debug=args.debug,
         )
 
+    elif args.move_tile:
+        tile_id, dr, dc = args.move_tile
+        move_tile(
+            tiles,
+            tile_id=tile_id,
+            dest_row=dr,
+            dest_col=dc,
+            allow_overlap=args.allow_overlap,
+            skip_overlap=args.skip_overlap,
+            push_spec=push_spec,
+            show_map=show_map,
+            map_focus=map_focus,
+            show_ids=show_ids,
+            show_axes=show_axes,
+            verbose=args.verbose,
+            debug=args.debug,
+        )
 
     elif args.copy_cols:
         s, e, d = args.copy_cols
@@ -1368,6 +1411,25 @@ def main(argv: Optional[List[str]] = None) -> None:
             dest_top_row=dr,
             dest_left_col=dc,
             include_overlap=selection_mode,
+            allow_overlap=args.allow_overlap,
+            skip_overlap=args.skip_overlap,
+            push_spec=push_spec,
+            show_map=show_map,
+            map_focus=map_focus,
+            show_ids=show_ids,
+            show_axes=show_axes,
+            verbose=args.verbose,
+            debug=args.debug,
+            reserved_ids=reserved_css_ids,
+        )
+
+    elif args.copy_tile:
+        tile_id, dr, dc = args.copy_tile
+        created_id_map = copy_tile(
+            tiles,
+            tile_id=tile_id,
+            dest_row=dr,
+            dest_col=dc,
             allow_overlap=args.allow_overlap,
             skip_overlap=args.skip_overlap,
             push_spec=push_spec,
@@ -1451,6 +1513,26 @@ def main(argv: Optional[List[str]] = None) -> None:
         )
         merge_css_source_path = merge_source_path
 
+    elif args.merge_tile:
+        tile_id, dr, dc = args.merge_tile
+        created_id_map = merge_tile(
+            tiles,
+            merge_source_path=merge_source_path,
+            tile_id=tile_id,
+            dest_row=dr,
+            dest_col=dc,
+            allow_overlap=args.allow_overlap,
+            skip_overlap=args.skip_overlap,
+            push_spec=push_spec,
+            show_map=show_map,
+            map_focus=map_focus,
+            show_ids=show_ids,
+            show_axes=show_axes,
+            verbose=args.verbose,
+            debug=args.debug,
+            reserved_ids=reserved_css_ids,
+        )
+        merge_css_source_path = merge_source_path
 
     elif args.delete_rows:
         s, e = args.delete_rows
@@ -2000,12 +2082,15 @@ def main(argv: Optional[List[str]] = None) -> None:
         args.move_cols
         or args.move_rows
         or args.move_range
+        or args.move_tile
         or args.copy_cols
         or args.copy_rows
         or args.copy_range
+        or args.copy_tile
         or args.merge_cols
         or args.merge_rows
         or args.merge_range
+        or args.merge_tile
     )
     if overlap_ops and (not args.allow_overlap) and (not args.skip_overlap):
         ov = _first_overlap_changed_vs_unchanged(final_tiles)

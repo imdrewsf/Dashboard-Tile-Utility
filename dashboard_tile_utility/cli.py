@@ -57,9 +57,9 @@ Usage:
 
 Main actions (choose one):
   --insert:rows|cols
-  --move:rows|cols|range
-  --copy:rows|cols|range
-  --merge:rows|cols|range
+  --move:rows|cols|range|tile
+  --copy:rows|cols|range|tile
+  --merge:rows|cols|range|tile
   --delete:rows|cols
   --clear:rows|cols|range
   --crop:rows|cols|range
@@ -117,14 +117,17 @@ Main actions (at most ONE per run):
   Move        --move:cols START END DEST
               --move:rows START END DEST
               --move:range SRC_TOP SRC_LEFT SRC_BOTTOM SRC_RIGHT DEST_TOP DEST_LEFT
+              --move:tile TILE_ID DEST_ROW DEST_COL
 
   Copy        --copy:cols START END DEST
               --copy:rows START END DEST
               --copy:range SRC_TOP SRC_LEFT SRC_BOTTOM SRC_RIGHT DEST_TOP DEST_LEFT
+              --copy:tile TILE_ID DEST_ROW DEST_COL
 
   Merge       --merge:cols START END DEST
               --merge:rows START END DEST
               --merge:range SRC_TOP SRC_LEFT SRC_BOTTOM SRC_RIGHT DEST_TOP DEST_LEFT
+              --merge:tile TILE_ID DEST_ROW DEST_COL
               --merge_source:file <filename> OR --merge_source:hub <dashboard_url>
               merged tiles always receive new destination IDs
 
@@ -237,13 +240,17 @@ Main actions (mutually exclusive; choose at most ONE per run)
     --move:cols START_COL END_COL DEST_START_COL
     --move:rows START_ROW END_ROW DEST_START_ROW
     --move:range SRC_TOP_ROW SRC_LEFT_COL SRC_BOTTOM_ROW SRC_RIGHT_COL DEST_TOP_ROW DEST_LEFT_COL
+    --move:tile TILE_ID DEST_ROW DEST_COL
     Modifiers: --select:include_partial, --select:exclude_partial, --overlaps:allow, --overlaps:skip, --overlaps:push [BUFFER]
+    Note: --move:tile selects exactly one tile by id; --select:* is not valid with :tile mode.
 
   Copy / duplicate existing tiles:
     --copy:cols START_COL END_COL DEST_START_COL
     --copy:rows START_ROW END_ROW DEST_START_ROW
     --copy:range SRC_TOP_ROW SRC_LEFT_COL SRC_BOTTOM_ROW SRC_RIGHT_COL DEST_TOP_ROW DEST_LEFT_COL
+    --copy:tile TILE_ID DEST_ROW DEST_COL
     Modifiers: --select:include_partial, --select:exclude_partial, --overlaps:allow, --overlaps:skip, --overlaps:push [BUFFER], --css:ignore
+    Note: --copy:tile selects exactly one tile by id; --select:* is not valid with :tile mode.
 
   Merge / import tiles from another layout:
     --merge_source:file <filename>
@@ -251,7 +258,9 @@ Main actions (mutually exclusive; choose at most ONE per run)
     --merge:cols START_COL END_COL DEST_START_COL
     --merge:rows START_ROW END_ROW DEST_START_ROW
     --merge:range SRC_TOP_ROW SRC_LEFT_COL SRC_BOTTOM_ROW SRC_RIGHT_COL DEST_TOP_ROW DEST_LEFT_COL
+    --merge:tile TILE_ID DEST_ROW DEST_COL
     Modifiers: --select:include_partial, --select:exclude_partial, --overlaps:allow, --overlaps:skip, --overlaps:push [BUFFER], --css:ignore
+    Note: --merge:tile selects exactly one source tile by id; --select:* is not valid with :tile mode.
     Notes: merge is a copy operation; merged tiles always receive new destination IDs using the same allocation rule as --copy:*.
 
   Delete rows / columns (removes matched tiles and shifts following tiles up / left):
@@ -693,6 +702,16 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         help="(see --help:full for details)",
     )
+    ops.add_argument(
+        "--move:tile",
+        "--move_tile",
+        "--move-tile",
+        dest="move_tile",
+        nargs=3,
+        metavar=("TILE_ID", "DEST_ROW", "DEST_COL"),
+        type=int,
+        help="(see --help:full for details)",
+    )
 
     ops.add_argument(
         "--copy:cols",
@@ -724,6 +743,16 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         help="(see --help:full for details)",
     )
+    ops.add_argument(
+        "--copy:tile",
+        "--copy_tile",
+        "--copy-tile",
+        dest="copy_tile",
+        nargs=3,
+        metavar=("TILE_ID", "DEST_ROW", "DEST_COL"),
+        type=int,
+        help="(see --help:full for details)",
+    )
 
     ops.add_argument(
         "--merge:cols",
@@ -752,6 +781,16 @@ def build_parser() -> argparse.ArgumentParser:
         dest="merge_range",
         nargs=6,
         metavar=("SRC_TOP_ROW", "SRC_LEFT_COL", "SRC_BOTTOM_ROW", "SRC_RIGHT_COL", "DEST_TOP_ROW", "DEST_LEFT_COL"),
+        type=int,
+        help="(see --help:full for details)",
+    )
+    ops.add_argument(
+        "--merge:tile",
+        "--merge_tile",
+        "--merge-tile",
+        dest="merge_tile",
+        nargs=3,
+        metavar=("TILE_ID", "DEST_ROW", "DEST_COL"),
         type=int,
         help="(see --help:full for details)",
     )

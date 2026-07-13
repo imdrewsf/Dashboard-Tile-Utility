@@ -82,7 +82,7 @@ A command-line tool to import, modify, and output [Hubitat](https://hubitat.com/
 
 - [**CSS SUPPORT**](#custom-css-handling--capabilities--limits)
   - Preserve, duplicate or remove CSS rules from `customCSS` when tiles are added (copied) or removed by layout actions.
-  - Include tile-scoped CSS rules loaded through `@import` statements in `customCSS` when duplicating tiles.
+  - Duplicate tile-scoped CSS rules loaded through `customCSS` `@import` statements into editable `customCSS` for copied/merged tiles.
   - Copy custom CSS rules between tiles with conflict handling if rules already exist for the destination tile.
   - Reformat and sort custom rules in `customCSS` for easier editing.
   - CSS comment block awareness, including "commented out" rules.
@@ -356,12 +356,13 @@ Moves tiles to a new location.
 
 **Action:** `--move:mode`
 
-**Modes:** `rows` | `cols` | `range`
+**Modes:** `rows` | `cols` | `range` | `tile`
 
 ```
 --move:rows <start_row> <end_row> <dest_start_row>
 --move:cols <start_col> <end_col> <dest_start_col>
 --move:range <src_top_row> <src_left_col> <src_bottom_row> <src_right_col> <dest_top_row> <dest_left_col>
+--move:tile <tile_id> <dest_row> <dest_col>
 ```
 
 **Selection Modifiers:**
@@ -377,6 +378,7 @@ Moves tiles to a new location.
 
 **Notes:**
 
+- `--move:tile` moves exactly one tile by tile id to the specified destination row/column.
 - Moving tiles does not alter the layout of other tiles. The space occupied by the moved tiles remains empty.
 - Conflict detection is evaluated once, before moving, against existing tiles at the destination only.
 - Tiles that are being moved can be overlapped and will not be considered in conflict.
@@ -392,12 +394,13 @@ Same as Move, but the originals remain. Copies are created with new IDs. Existin
 
 **Action:** `--copy:mode`
 
-**Modes:** `rows` | `cols` | `range`
+**Modes:** `rows` | `cols` | `range` | `tile`
 
 ```
 --copy:rows <start_row> <end_row> <dest_start_row>
 --copy:cols <start_col> <end_col> <dest_start_col>
 --copy:range <src_top_row> <src_left_col> <src_bottom_row> <src_right_col> <dest_top_row> <dest_left_col>
+--copy:tile <tile_id> <dest_row> <dest_col>
 ```
 
 **Selection Modifiers:**
@@ -414,6 +417,7 @@ Same as Move, but the originals remain. Copies are created with new IDs. Existin
 
 **Notes:**
 
+- `--copy:tile` copies exactly one tile by tile id to the specified destination row/column.
 - New tile-ids for the copied tiles are created sequentially, starting with:
 
   ```
@@ -421,7 +425,7 @@ Same as Move, but the originals remain. Copies are created with new IDs. Existin
   ```
 
   This prevents any orphaned CSS rules from being applied to new tiles.
-- By default, tile-scoped CSS rules and comments that reference the tiles being copied will be duplicated and mapped to the new tile-ids. Tile-scoped rules from `@import` stylesheets are duplicated into customCSS for the new tile-ids.  
+- By default, tile-scoped CSS rules and comments that reference the tiles being copied will be duplicated and mapped to the new tile-ids. Tile-scoped rules from `@import` stylesheets are also duplicated into editable `customCSS` for the new tile-ids.
 - Conflict detection is evaluated once, before copying, against existing tiles at the destination only.
 - Tiles that are being copied can be overlapped and will not be considered in conflict.
 - Actions will be aborted if conflicts are found unless `--overlaps:allow` or `--overlaps:skip` is present.
@@ -436,12 +440,13 @@ Merge (copy) tiles from another dashboard layout into this layout.
 
 **Action:** `--merge:mode --merge_source:type <"filename | url">`
 
-**Modes:** `rows` | `cols` | `range`
+**Modes:** `rows` | `cols` | `range` | `tile`
 
 ```
 --merge:rows <start_row> <end_row> <dest_start_row>
 --merge:cols <start_col> <end_col> <dest_start_col>
 --merge:range <src_top_row> <src_left_col> <src_bottom_row> <src_right_col> <dest_top_row> <dest_left_col>
+--merge:tile <tile_id> <dest_row> <dest_col>
 ```
 
 **Source Types (required):** `file` | `hub`
@@ -463,6 +468,7 @@ Merge (copy) tiles from another dashboard layout into this layout.
 
 **Notes:**
 
+- `--merge:tile` merges exactly one source tile by tile id to the specified destination row/column.
 - New tile-ids for the merged tiles are created sequentially, starting with:
 
   ```
@@ -470,7 +476,7 @@ Merge (copy) tiles from another dashboard layout into this layout.
   ```
 
   This prevents any orphaned CSS rules from being applied to new tiles.
-- By default, tile-scoped CSS rules and comments that reference the tiles being merged will be duplicated and mapped to the new tile-ids.
+- By default, tile-scoped CSS rules and comments that reference the tiles being merged will be duplicated and mapped to the new tile-ids. Tile-scoped rules from `@import` stylesheets are also duplicated into editable `customCSS` for the new tile-ids.
 - Conflict detection is evaluated once, before merging, against existing tiles in the destination only.
 - Tiles that are being merged can be overlapped and will not be considered in conflict.
 - Actions will be aborted if conflicts are found unless `--overlaps:allow` or `--overlaps:skip` is present.

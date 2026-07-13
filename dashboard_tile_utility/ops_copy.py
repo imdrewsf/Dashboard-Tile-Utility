@@ -132,6 +132,63 @@ def _conflict_scan_and_append(
 
     return appended_ids
 
+
+def copy_tile(
+    dest_tiles: List[Dict[str, Any]],
+    *,
+    tile_id: int,
+    dest_row: int,
+    dest_col: int,
+    allow_overlap: bool,
+    skip_overlap: bool,
+    push_spec: PushSpec = None,
+    show_map: bool = False,
+    map_focus: str = 'full',
+    show_ids: bool = False,
+    show_axes: str = 'none',
+    verbose: bool,
+    debug: bool,
+    reserved_ids: Optional[Set[int]] = None,
+) -> Dict[int, int]:
+    """Duplicate one tile, selected by tile id, at an exact destination row/col."""
+    if tile_id < 0 or dest_row <= 0 or dest_col <= 0:
+        die("--copy:tile requires TILE_ID >= 0 and positive DEST_ROW / DEST_COL values.")
+
+    src_tile = None
+    for t in dest_tiles:
+        if as_int(t, "id") == tile_id:
+            src_tile = t
+            break
+    if src_tile is None:
+        die(f"--copy:tile: tile id {tile_id} not found in layout.")
+
+    vlog(verbose, f"[copy_tile] selected tile id={tile_id}; destination=({dest_row},{dest_col})")
+    used_ids, next_id = _next_id_state(dest_tiles, reserved_ids=reserved_ids)
+
+    ct = copy.deepcopy(src_tile)
+    next_id = _ensure_unique_id(ct, used_ids, next_id, debug, "copy_tile")
+    new_id = as_int(ct, "id")
+    set_int_like(ct, "row", dest_row)
+    set_int_like(ct, "col", dest_col)
+    dlog(debug, f"[copy_tile] copy source id={tile_id} -> new id={new_id}; destination=({dest_row},{dest_col})")
+
+    appended_ids = _conflict_scan_and_append(
+        dest_tiles,
+        copies=[ct],
+        allow_overlap=allow_overlap,
+        skip_overlap=skip_overlap,
+        push_spec=push_spec,
+        verbose=verbose,
+        debug=debug,
+        label="copy_tile",
+        show_map=show_map,
+        map_focus=map_focus,
+        show_ids=show_ids,
+        show_axes=show_axes,
+    )
+
+    return {tile_id: new_id} if new_id in appended_ids else {}
+
 def copy_cols(
     dest_tiles: List[Dict[str, Any]],
     *,
